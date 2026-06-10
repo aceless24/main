@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Finance Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
@@ -24,6 +26,7 @@
         <li><a href="#" class="nav-link" data-section="outlook">&#9632; Outlook</a></li>
         <li><a href="#" class="nav-link" data-section="unexpected">&#9632; Unexpected</a></li>
         <li><a href="#" class="nav-link" data-section="goals">&#9632; Savings Goals</a></li>
+        <li><a href="#" class="nav-link" data-section="settings">&#9632; Settings</a></li>
       </ul>
     </nav>
 
@@ -546,8 +549,6 @@
           <div id="goals-plan" class="goals-plan"></div>
         </div>
       </section>
-    </main>
-  </div>
 
   <!-- MODALS -->
   <div id="modal-overlay" class="modal-overlay hidden">
@@ -1061,6 +1062,60 @@
         <button class="btn btn-primary" onclick="saveGoal()">Save</button>
       </div>
     </div>
+  </div>
+
+      <!-- SETTINGS -->
+      <section id="section-settings" class="section">
+        <div class="panel" style="max-width:640px">
+          <div class="panel-header">
+            <h2>🎨 Appearance</h2>
+            <span class="badge" id="settings-theme-current">Light</span>
+          </div>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px">Choose how Finance Tracker looks. "System" automatically matches your Windows dark/light mode setting.</p>
+          <div id="settings-theme-options" class="theme-options">
+            <button id="theme-btn-light" class="theme-btn" onclick="setTheme('light')">
+              <div class="theme-preview theme-preview-light">
+                <div class="theme-preview-sidebar"></div>
+                <div class="theme-preview-content">
+                  <div class="theme-preview-card"></div>
+                  <div class="theme-preview-card"></div>
+                </div>
+              </div>
+              <span>Light</span>
+            </button>
+            <button id="theme-btn-dark" class="theme-btn" onclick="setTheme('dark')">
+              <div class="theme-preview theme-preview-dark">
+                <div class="theme-preview-sidebar"></div>
+                <div class="theme-preview-content">
+                  <div class="theme-preview-card"></div>
+                  <div class="theme-preview-card"></div>
+                </div>
+              </div>
+              <span>Dark</span>
+            </button>
+            <button id="theme-btn-system" class="theme-btn" onclick="setTheme('system')">
+              <div class="theme-preview theme-preview-system">
+                <div class="theme-preview-sidebar"></div>
+                <div class="theme-preview-content">
+                  <div class="theme-preview-card"></div>
+                  <div class="theme-preview-card"></div>
+                </div>
+              </div>
+              <span>System Default</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="panel" style="max-width:640px">
+          <div class="panel-header"><h2>ℹ️ About</h2></div>
+          <div style="font-size:13px;color:var(--text-muted);line-height:1.8">
+            <div><strong style="color:var(--text)">Finance Tracker</strong> — Personal desktop finance app</div>
+            <div>Version 1.0.0</div>
+            <div style="margin-top:8px">All your data is stored locally on this device. Nothing is sent to external servers.</div>
+          </div>
+        </div>
+      </section>
+    </main>
   </div>
 
   <script src="app.js"></script>

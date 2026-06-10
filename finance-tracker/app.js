@@ -201,7 +201,8 @@ function navigate(section) {
     budget: 'Budget',
     outlook: 'Outlook',
     unexpected: 'Unexpected Expenses',
-    goals: 'Savings Goals'
+    goals: 'Savings Goals',
+    settings: 'Settings'
   }[section] || section;
 
   renderSection(section);
@@ -217,6 +218,7 @@ function renderSection(section) {
   if (section === 'outlook') renderOutlook();
   if (section === 'unexpected') renderUnexpected();
   if (section === 'goals') renderGoals();
+  if (section === 'settings') renderSettings();
 }
 
 /* ─── Dashboard ─────────────────────────────────────────────────── */
@@ -1989,6 +1991,91 @@ function deleteUnexpected(id) {
   renderSection(currentSection());
 }
 
+/* ─── Settings / Theme ──────────────────────────────────────────── */
+const THEME_KEY = 'finance_tracker_theme';
+const THEMES = {
+  light: {
+    '--bg': '#f0effe', '--bg2': '#ffffff', '--bg3': '#f7f5fd',
+    '--border': '#e6e1f5', '--text': '#1a1440', '--text-muted': '#8b8fa8',
+    '--blue': '#6366f1', '--blue-dark': '#4f46e5', '--green': '#10b981',
+    '--green-dark': '#059669', '--orange': '#f97316', '--red': '#ef4444',
+    '--purple': '#7c3aed', '--purple-2': '#9333ea', '--purple-light': '#ede9fe',
+    '--shadow': '0 2px 16px rgba(99,102,241,0.07)',
+    '--shadow-md': '0 6px 28px rgba(99,102,241,0.12)',
+    '--shadow-lg': '0 12px 48px rgba(99,102,241,0.18)',
+    '--card-bg': '#ffffff', '--panel-bg': '#ffffff', '--input-bg': '#f7f5fd',
+    '--overlay-bg': 'rgba(20,10,50,0.45)',
+  },
+  dark: {
+    '--bg': '#0f1117', '--bg2': '#181c24', '--bg3': '#1e2330',
+    '--border': '#2a2f3d', '--text': '#e8eaf0', '--text-muted': '#7a8099',
+    '--blue': '#6366f1', '--blue-dark': '#4f46e5', '--green': '#10b981',
+    '--green-dark': '#059669', '--orange': '#f97316', '--red': '#ef4444',
+    '--purple': '#7c3aed', '--purple-2': '#9333ea', '--purple-light': 'rgba(124,58,237,0.2)',
+    '--shadow': '0 2px 16px rgba(0,0,0,0.4)',
+    '--shadow-md': '0 6px 28px rgba(0,0,0,0.5)',
+    '--shadow-lg': '0 12px 48px rgba(0,0,0,0.6)',
+    '--card-bg': '#181c24', '--panel-bg': '#181c24', '--input-bg': '#1e2330',
+    '--overlay-bg': 'rgba(0,0,0,0.65)',
+  }
+};
+
+function getSystemTheme() {
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function getSavedTheme() {
+  return localStorage.getItem(THEME_KEY) || 'system';
+}
+
+function applyTheme(preference) {
+  const resolved = preference === 'system' ? getSystemTheme() : preference;
+  const vars = THEMES[resolved] || THEMES.light;
+  const root = document.documentElement;
+  Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
+  document.documentElement.setAttribute('data-theme', resolved);
+  localStorage.setItem(THEME_KEY, preference);
+
+  // Update card/panel backgrounds for dark mode
+  if (resolved === 'dark') {
+    document.documentElement.style.setProperty('--card-bg', '#181c24');
+    document.documentElement.style.setProperty('--panel-bg', '#181c24');
+  } else {
+    document.documentElement.style.setProperty('--card-bg', '#ffffff');
+    document.documentElement.style.setProperty('--panel-bg', '#ffffff');
+  }
+}
+
+function initTheme() {
+  const saved = getSavedTheme();
+  applyTheme(saved);
+  // Listen for system theme changes
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (getSavedTheme() === 'system') applyTheme('system');
+    });
+  }
+}
+
+function renderSettings() {
+  const saved = getSavedTheme();
+  const el = document.getElementById('settings-theme-options');
+  if (!el) return;
+  ['light', 'dark', 'system'].forEach(opt => {
+    const btn = document.getElementById(`theme-btn-${opt}`);
+    if (btn) {
+      btn.classList.toggle('theme-btn-active', saved === opt);
+    }
+  });
+  document.getElementById('settings-theme-current').textContent =
+    saved === 'system' ? `System (currently ${getSystemTheme()})` : saved.charAt(0).toUpperCase() + saved.slice(1);
+}
+
+function setTheme(preference) {
+  applyTheme(preference);
+  renderSettings();
+}
+
 /* ─── Utilities ─────────────────────────────────────────────────── */
 function populateAccountSelect(selectId, selectedId, includeCreditOption) {
   const el = document.getElementById(selectId);
@@ -2007,6 +2094,7 @@ function currentSection() {
 
 /* ─── Init ──────────────────────────────────────────────────────── */
 function init() {
+  initTheme();
   loadState();
 
   // Month label

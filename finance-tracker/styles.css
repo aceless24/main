@@ -1,7 +1,10 @@
 /* ─── Reset & Base ─────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+/* Google Fonts loaded via <link> in HTML for Electron compatibility */
+
+/* Global hidden utility — belt-and-suspenders for Electron */
+.hidden { display: none !important; pointer-events: none !important; }
 
 :root {
   --bg:        #f0effe;
@@ -145,13 +148,12 @@ body {
 }
 
 .card {
-  background: white;
+  background: var(--card-bg, white);
   border-radius: 20px;
   padding: 22px 22px 18px;
   box-shadow: var(--shadow);
-  border: 1px solid rgba(230,225,245,0.8);
+  border: 1px solid var(--border);
   position: relative;
-  overflow: hidden;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -177,12 +179,12 @@ body {
 
 /* ─── Panel ──────────────────────────────────────────────────────── */
 .panel {
-  background: white;
+  background: var(--panel-bg, white);
   border-radius: 20px;
   padding: 22px 24px;
   margin-bottom: 20px;
   box-shadow: var(--shadow);
-  border: 1px solid rgba(230,225,245,0.8);
+  border: 1px solid var(--border);
 }
 
 .panel-header {
@@ -270,7 +272,7 @@ body {
 .input {
   width: 100%;
   padding: 10px 14px;
-  background: var(--bg3);
+  background: var(--input-bg, var(--bg3));
   border: 1.5px solid var(--border);
   border-radius: 10px;
   color: var(--text);
@@ -305,14 +307,13 @@ body {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(20,10,50,0.5);
-  backdrop-filter: blur(6px);
+  background: rgba(20,10,50,0.45);
   z-index: 100;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.modal-overlay.hidden { display: none; }
+.modal-overlay.hidden { display: none; pointer-events: none; }
 
 .modal {
   background: white;
@@ -626,6 +627,81 @@ body {
 /* ─── Link ───────────────────────────────────────────────────────── */
 a.link { color: var(--purple); font-size: 12px; font-weight: 700; text-decoration: none; }
 a.link:hover { text-decoration: underline; }
+
+/* ─── Dark Mode Overrides ────────────────────────────────────────── */
+[data-theme="dark"] .top-bar {
+  background: var(--bg2);
+  border-bottom-color: var(--border);
+  box-shadow: 0 1px 12px rgba(0,0,0,0.3);
+}
+[data-theme="dark"] .modal { background: var(--bg2); border-color: var(--border); }
+[data-theme="dark"] .modal-header h3 { color: var(--text); }
+[data-theme="dark"] .modal-close { background: var(--bg3); border-color: var(--border); color: var(--text-muted); }
+[data-theme="dark"] .modal-close:hover { background: rgba(239,68,68,0.15); color: var(--red); }
+[data-theme="dark"] .bill-item { background: var(--bg3); border-color: var(--border); }
+[data-theme="dark"] .bill-item:hover { background: rgba(124,58,237,0.1); }
+[data-theme="dark"] .tx-item { background: var(--bg3); border-color: var(--border); }
+[data-theme="dark"] .tx-item:hover { background: rgba(124,58,237,0.1); }
+[data-theme="dark"] .bank-acct-card { background: var(--bg3); border-color: var(--border); }
+[data-theme="dark"] .bank-acct-actions button { background: var(--bg2); border-color: var(--border); color: var(--text); }
+[data-theme="dark"] .cc-card { background: var(--bg3); border-color: var(--border); }
+[data-theme="dark"] .cc-card-actions button { background: var(--bg2); border-color: var(--border); color: var(--text); }
+[data-theme="dark"] .cc-summary-stat { background: var(--bg2); border-color: var(--border); }
+[data-theme="dark"] .goal-item { background: var(--bg3); border-color: var(--border); }
+[data-theme="dark"] .goal-plan-row { background: var(--bg3); border-color: var(--border); }
+[data-theme="dark"] .empty-state { background: var(--bg3); border-color: var(--border); }
+[data-theme="dark"] .badge { background: rgba(124,58,237,0.25); color: #c4b5fd; }
+[data-theme="dark"] .select-sm { background: var(--bg3); border-color: var(--border); color: var(--text); }
+[data-theme="dark"] #current-month-label { background: var(--bg3); border-color: var(--border); color: var(--text-muted); }
+[data-theme="dark"] .bill-checklist-summary { background: rgba(124,58,237,0.15); border-color: rgba(124,58,237,0.25); }
+[data-theme="dark"] .bill-checklist-stat span { color: #c4b5fd; }
+[data-theme="dark"] .bill-check-item { background: var(--bg3); border-color: var(--border); }
+[data-theme="dark"] .new-month-banner { background: rgba(124,58,237,0.15); border-color: rgba(124,58,237,0.3); }
+[data-theme="dark"] .cc-payment-tracker-row { background: var(--bg3); border-color: var(--border); }
+[data-theme="dark"] .cc-payoff-row { background: var(--bg3); border-color: var(--border); }
+[data-theme="dark"] .savings-alloc-stat { border-bottom-color: var(--border); }
+[data-theme="dark"] .outlook-stat { border-bottom-color: var(--border); }
+[data-theme="dark"] .income-item { border-bottom-color: var(--border); }
+
+/* ─── Theme Picker (Settings) ───────────────────────────────────── */
+.theme-options { display: flex; gap: 16px; }
+.theme-btn {
+  flex: 1; background: var(--bg3); border: 2px solid var(--border);
+  border-radius: 16px; padding: 14px; cursor: pointer; color: var(--text);
+  font-size: 13px; font-weight: 600; font-family: inherit;
+  transition: all 0.2s ease; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.theme-btn:hover { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+.theme-btn-active {
+  border-color: var(--purple); background: var(--purple-light);
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.15);
+  color: var(--purple);
+}
+[data-theme="dark"] .theme-btn-active { background: rgba(124,58,237,0.2); }
+
+.theme-preview {
+  width: 100%; height: 64px; border-radius: 10px; overflow: hidden;
+  display: flex; border: 1px solid var(--border);
+}
+.theme-preview-light { background: #f0effe; }
+.theme-preview-dark  { background: #0f1117; }
+.theme-preview-system { background: linear-gradient(135deg, #f0effe 50%, #0f1117 50%); }
+.theme-preview-sidebar {
+  width: 28%; background: linear-gradient(170deg, #0e0528 0%, #2d1b69 100%);
+}
+.theme-preview-light .theme-preview-content { background: #f0effe; }
+.theme-preview-dark  .theme-preview-content { background: #0f1117; }
+.theme-preview-system .theme-preview-content { background: linear-gradient(135deg, #f0effe 50%, #0f1117 50%); }
+.theme-preview-content {
+  flex: 1; padding: 6px; display: flex; flex-direction: column; gap: 5px;
+}
+.theme-preview-card {
+  height: 18px; border-radius: 5px;
+}
+.theme-preview-light .theme-preview-card  { background: white; }
+.theme-preview-dark  .theme-preview-card  { background: #181c24; }
+.theme-preview-system .theme-preview-card { background: rgba(255,255,255,0.3); }
 
 /* ─── Scrollbar ──────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
