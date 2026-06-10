@@ -241,6 +241,85 @@ function totalSavingsBalance() {
   return (state.bankAccounts || []).filter(a => a.accountType === 'savings' || a.accountType === 'money market' || a.accountType === 'cd').reduce((s, a) => s + (a.balance || 0), 0);
 }
 
+/* ─── Wave Animation ───────────────────────────────────────────── */
+const WAVE_THEMES = [
+  { name: 'aurora',  colors: ['#7c3aed','#a855f7','#6366f1','#8b5cf6'], bg: ['#0e0528','#1e0a3c','#2d1b69'] },
+  { name: 'ocean',   colors: ['#06b6d4','#22d3ee','#0891b2','#67e8f9'], bg: ['#042030','#063548','#064e6e'] },
+  { name: 'forest',  colors: ['#10b981','#34d399','#059669','#6ee7b7'], bg: ['#021a10','#032e1a','#044d2c'] },
+  { name: 'sunset',  colors: ['#f97316','#fb923c','#ef4444','#f59e0b'], bg: ['#1a0a02','#2d1005','#3d1a08'] },
+  { name: 'nebula',  colors: ['#ec4899','#a855f7','#8b5cf6','#f472b6'], bg: ['#1a0518','#2d0a2e','#3d1045'] },
+];
+
+let activeWaveTheme = null;
+let heroWaveAnim = null;
+let headerWaveAnim = null;
+
+function pickWaveTheme() {
+  activeWaveTheme = WAVE_THEMES[Math.floor(Math.random() * WAVE_THEMES.length)];
+  return activeWaveTheme;
+}
+
+function startWaveCanvas(canvasId, theme, height) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return null;
+  const ctx = canvas.getContext('2d');
+  canvas.width  = canvas.offsetWidth  || canvas.parentElement.offsetWidth  || 800;
+  canvas.height = height || canvas.offsetHeight || 180;
+
+  const waves = [
+    { speed: 0.0008, amp: canvas.height * 0.18, y: 0.35, phase: 0,           freq: 0.009 },
+    { speed: 0.0013, amp: canvas.height * 0.12, y: 0.55, phase: Math.PI,     freq: 0.011 },
+    { speed: 0.0006, amp: canvas.height * 0.22, y: 0.70, phase: Math.PI/2,   freq: 0.007 },
+  ];
+  let t = 0;
+  let raf = null;
+  let stopped = false;
+
+  function draw() {
+    if (stopped) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    t++;
+
+    waves.forEach((w, i) => {
+      const color = theme.colors[i % theme.colors.length];
+      ctx.save();
+      ctx.beginPath();
+      const baseY = canvas.height * w.y;
+      for (let x = 0; x <= canvas.width; x += 2) {
+        const y = baseY + Math.sin(x * w.freq + t * w.speed * 80 + w.phase) * w.amp
+                        + Math.sin(x * w.freq * 2.3 + t * w.speed * 50 + w.phase * 0.5) * w.amp * 0.3;
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = color + 'cc';
+      ctx.lineWidth = canvasId === 'hero-wave-canvas' ? 1.8 : 1.2;
+      ctx.shadowBlur = canvasId === 'hero-wave-canvas' ? 12 : 6;
+      ctx.shadowColor = color;
+      ctx.stroke();
+      ctx.restore();
+
+      // dots along wave
+      ctx.save();
+      for (let x = 15; x < canvas.width; x += (canvasId === 'hero-wave-canvas' ? 28 : 40)) {
+        const y = baseY + Math.sin(x * w.freq + t * w.speed * 80 + w.phase) * w.amp
+                        + Math.sin(x * w.freq * 2.3 + t * w.speed * 50 + w.phase * 0.5) * w.amp * 0.3;
+        ctx.beginPath();
+        ctx.arc(x, y, canvasId === 'hero-wave-canvas' ? 2.2 : 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = theme.colors[(i + 1) % theme.colors.length] + 'ee';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = theme.colors[(i + 1) % theme.colors.length];
+        ctx.fill();
+        ctx.restore(); ctx.save();
+      }
+      ctx.restore();
+    });
+
+    raf = requestAnimationFrame(draw);
+  }
+
+  draw();
+  return { stop: () => { stopped = true; if (raf) cancelAnimationFrame(raf); } };
+}
+
 /* ─── Navigation ────────────────────────────────────────────────── */
 function navigate(section) {
   closeNav();
@@ -265,6 +344,9 @@ function navigate(section) {
     goals: 'Savings Goals',
     settings: 'Settings'
   }[section] || section;
+
+  const waveHeader = document.getElementById('section-wave-header');
+  if (waveHeader) waveHeader.style.display = section === 'dashboard' ? 'none' : '';
 
   renderSection(section);
 }
@@ -312,6 +394,14 @@ function renderDashboard() {
   document.getElementById('dash-available').textContent = fmt(Math.max(0, avail));
   document.getElementById('dash-monthly-left').textContent = fmt(Math.max(0, adjDisc - spent));
   document.getElementById('dash-weekly').textContent = fmt(Math.max(0, wkly));
+
+  // section wave header values
+  const headerBal = document.getElementById('header-balance-display');
+  if (headerBal) headerBal.textContent = fmt(totalBalance());
+  const headerAvail = document.getElementById('header-avail-display');
+  if (headerAvail) headerAvail.textContent = fmt(Math.max(0, avail));
+  const headerMonthly = document.getElementById('header-monthly-display');
+  if (headerMonthly) headerMonthly.textContent = fmt(Math.max(0, adjDisc - spent));
 
   // show/hide balance-constraint note on Available to Spend card
   const noteEl = document.getElementById('dash-balance-constraint-note');
@@ -935,7 +1025,7 @@ function renderBillHistory() {
         return def ? `${def.name}: ${fmt(e.amount)}` : '';
       }).filter(Boolean);
 
-      return `<tr${isCurrent ? ' style="background:rgba(99,102,241,0.07)"' : ''}>
+      return `<tr onclick="openBillMonthDetail('${m}')" style="cursor:pointer${isCurrent ? ';background:rgba(99,102,241,0.07)' : ''}">
         <td><strong>${monthLabel(m)}</strong>${isCurrent ? ' <span style="color:#4f8ef7;font-size:10px">(current)</span>' : ''}</td>
         <td>${fmt(fixedTotal)}</td>
         <td>${varDisplay}${!allEntered && varDefs.length > 0 ? ' <span style="color:#f59e0b;font-size:10px">⚠ incomplete</span>' : ''}</td>
@@ -945,6 +1035,82 @@ function renderBillHistory() {
       </tr>`;
     }).join('')}</tbody>
   </table>`;
+}
+
+function openBillMonthDetail(monthKey) {
+  document.getElementById('modal-bill-month-title').textContent = `Bills — ${monthLabel(monthKey)}`;
+  const content = document.getElementById('modal-bill-month-content');
+
+  // Fixed bills
+  const fixedBills = state.bills || [];
+  const fixedHTML = fixedBills.length ? `
+    <div>
+      <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:10px">Fixed Bills</div>
+      ${fixedBills.map(b => `
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <span>${BILL_ICONS[b.category] || '📋'} ${b.name} <span style="color:var(--text-muted);font-size:11px">(${b.type}${b.dueDay ? ' · due ' + b.dueDay : ''})</span></span>
+          <strong>${fmt(b.amount)}</strong>
+        </div>
+      `).join('')}
+      <div style="display:flex;justify-content:space-between;padding:10px 0 0;font-size:13px;font-weight:800">
+        <span>Fixed Bills Total</span><span style="color:#ef4444">${fmt(totalBills())}</span>
+      </div>
+    </div>
+  ` : '<div style="color:var(--text-muted);font-size:13px">No fixed bills.</div>';
+
+  // Variable bills
+  const varEntries = getVariableEntries(monthKey);
+  const varDefs = state.variableBills || [];
+  const varHTML = varDefs.length ? `
+    <div>
+      <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:10px">Variable Bills</div>
+      ${varDefs.map(vb => {
+        const entry = varEntries.find(e => e.billId === vb.id);
+        const amount = entry?.amount || 0;
+        const estMin = entry?.estimateMin || 0;
+        const estMax = entry?.estimateMax || 0;
+        const display = amount > 0 ? `<strong>${fmt(amount)}</strong>`
+          : estMin > 0 ? `<span style="color:#f59e0b">${fmt(estMin)}–${fmt(estMax)} est.</span>`
+          : `<span style="color:var(--text-muted)">Not entered</span>`;
+        return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <span>${BILL_ICONS[vb.category] || '📋'} ${vb.name}</span>${display}</div>`;
+      }).join('')}
+      <div style="display:flex;justify-content:space-between;padding:10px 0 0;font-size:13px;font-weight:800">
+        <span>Variable Bills Total</span><span style="color:#06b6d4">${fmt(totalVariableBills(monthKey))}</span>
+      </div>
+    </div>
+  ` : '';
+
+  // CC payments for this month
+  const ccPayments = (state.ccPaymentHistory || []).filter(p => p.month === monthKey);
+  const ccCards = state.creditCards || [];
+  const ccHTML = ccPayments.length ? `
+    <div>
+      <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:10px">Credit Card Payments</div>
+      ${ccPayments.map(p => {
+        const card = ccCards.find(c => c.id === p.cardId);
+        return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <span>💳 ${card ? card.name : 'Unknown Card'} <span style="color:var(--text-muted);font-size:11px">${p.date ? '· ' + formatDate(p.date) : ''}</span></span>
+          <strong>${fmt(p.amount)}</strong>
+        </div>`;
+      }).join('')}
+      <div style="display:flex;justify-content:space-between;padding:10px 0 0;font-size:13px;font-weight:800">
+        <span>CC Payments Total</span><span style="color:#a855f7">${fmt(ccPayments.reduce((s,p) => s + p.amount, 0))}</span>
+      </div>
+    </div>
+  ` : ccCards.length ? `<div style="color:var(--text-muted);font-size:13px">No CC payments recorded for this month.</div>` : '';
+
+  // Grand total
+  const grandTotal = totalBills() + totalVariableBills(monthKey) + ccPayments.reduce((s,p) => s + p.amount, 0);
+  const grandHTML = `
+    <div style="background:var(--purple-light);border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:14px;font-weight:800;color:var(--text)">Grand Total</span>
+      <span style="font-size:20px;font-weight:900;color:var(--purple)">${fmt(grandTotal)}</span>
+    </div>
+  `;
+
+  content.innerHTML = fixedHTML + varHTML + ccHTML + grandHTML;
+  openModal('modal-bill-month');
 }
 
 // Variable bill definition modal
@@ -1185,6 +1351,7 @@ function renderBudget() {
   document.getElementById('budget-weekly').textContent = fmt(Math.max(0, adjWkly));
 
   renderMinBalanceTargets();
+  renderBalanceAllocation();
 
   // Spending target inputs
   document.getElementById('budget-spend-target').value = spendTarget || '';
@@ -1306,6 +1473,75 @@ function renderBudget() {
       </div>
     `;
   }).join('');
+}
+
+function renderBalanceAllocation() {
+  const el = document.getElementById('balance-allocation-display');
+  if (!el) return;
+  const inc = totalMonthlyIncome();
+  const obligations = totalBills() + totalCCMonthlyCommitment() + Math.max(state.budget?.monthlySavingsTarget || 0, state.savingsAllocation || 0);
+  const disc = adjustedDiscretionary();
+  const spent = spentThisMonth();
+  const remaining = Math.max(0, disc - spent);
+  const totalBal = totalBalance();
+  const savBal = totalSavingsBalance();
+  const checkBal = totalBal - savBal;
+  const minRes = totalMinBalanceReserved();
+
+  const billPct  = inc > 0 ? Math.min(100, (obligations / inc) * 100) : 0;
+  const discPct  = inc > 0 ? Math.min(100, (disc / inc) * 100) : 0;
+  const spentPct = disc > 0 ? Math.min(100, (spent / disc) * 100) : 0;
+
+  el.innerHTML = `
+    <div class="bal-alloc-row">
+      <div class="bal-alloc-icon" style="background:rgba(239,68,68,0.12);color:#ef4444">📋</div>
+      <div class="bal-alloc-info">
+        <div class="bal-alloc-label">Bills &amp; Obligations</div>
+        <div class="bal-alloc-sub">Fixed bills, CC payments, savings target</div>
+        <div class="budget-bar-track" style="margin-top:6px">
+          <div class="budget-bar-fill" style="width:${Math.min(100,billPct)}%;background:#ef4444"></div>
+        </div>
+      </div>
+      <div class="bal-alloc-amount" style="color:#ef4444">${fmt(obligations)}</div>
+    </div>
+    <div class="bal-alloc-row">
+      <div class="bal-alloc-icon" style="background:rgba(99,102,241,0.12);color:#6366f1">💸</div>
+      <div class="bal-alloc-info">
+        <div class="bal-alloc-label">Available to Spend (Non-Bill)</div>
+        <div class="bal-alloc-sub">${fmt(spent)} spent · ${fmt(remaining)} remaining this month</div>
+        <div class="budget-bar-track" style="margin-top:6px">
+          <div class="budget-bar-fill" style="width:${Math.min(100,discPct)}%;background:#6366f1"></div>
+          <div class="budget-bar-fill" style="width:${Math.min(100,spentPct)}%;background:#f97316;margin-top:-8px"></div>
+        </div>
+      </div>
+      <div class="bal-alloc-amount" style="color:#6366f1">${fmt(disc)}</div>
+    </div>
+    <div class="bal-alloc-divider"></div>
+    <div class="bal-alloc-row">
+      <div class="bal-alloc-icon" style="background:rgba(16,185,129,0.12);color:#10b981">🏦</div>
+      <div class="bal-alloc-info">
+        <div class="bal-alloc-label">Checking Balance</div>
+        <div class="bal-alloc-sub">${minRes > 0 ? fmt(minRes) + ' reserved (min. balance targets)' : 'Available for bills and spending'}</div>
+      </div>
+      <div class="bal-alloc-amount" style="color:#10b981">${fmt(checkBal)}</div>
+    </div>
+    <div class="bal-alloc-row">
+      <div class="bal-alloc-icon" style="background:rgba(124,58,237,0.12);color:#7c3aed">🐷</div>
+      <div class="bal-alloc-info">
+        <div class="bal-alloc-label">Savings Balance</div>
+        <div class="bal-alloc-sub">Savings, money market, CD accounts</div>
+      </div>
+      <div class="bal-alloc-amount" style="color:#7c3aed">${fmt(savBal)}</div>
+    </div>
+    <div class="bal-alloc-row" style="background:var(--purple-light);border-radius:12px;padding:14px 16px">
+      <div class="bal-alloc-icon" style="background:rgba(124,58,237,0.2);color:#7c3aed">💰</div>
+      <div class="bal-alloc-info">
+        <div class="bal-alloc-label" style="font-weight:800">Total Available (Non-Bill)</div>
+        <div class="bal-alloc-sub">Total balance minus all obligations this month</div>
+      </div>
+      <div class="bal-alloc-amount" style="color:var(--purple);font-size:20px">${fmt(Math.max(0, totalBal - obligations))}</div>
+    </div>
+  `;
 }
 
 function saveBudgetTargets() {
@@ -2475,6 +2711,19 @@ function init() {
       if (loadingBar) loadingBar.style.width = '100%';
       setTimeout(() => {
         if (loadingScreen) loadingScreen.classList.add('hidden');
+        const theme = pickWaveTheme();
+        // Apply theme bg colors to hero card
+        const heroCard = document.querySelector('.hero-primary-card');
+        if (heroCard) {
+          heroCard.style.background = `linear-gradient(135deg, ${theme.bg[0]} 0%, ${theme.bg[1]} 50%, ${theme.bg[2]} 100%)`;
+        }
+        heroWaveAnim = startWaveCanvas('hero-wave-canvas', theme, 0);
+        headerWaveAnim = startWaveCanvas('header-wave-canvas', theme, 0);
+        // Also apply header bg
+        const headerWave = document.getElementById('section-wave-header');
+        if (headerWave) {
+          headerWave.style.background = `linear-gradient(135deg, ${theme.bg[0]} 0%, ${theme.bg[1]} 50%, ${theme.bg[2]} 100%)`;
+        }
       }, 400);
     }
     if (loadingBar) loadingBar.style.width = progress + '%';

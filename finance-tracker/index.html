@@ -20,7 +20,7 @@
       <div class="loading-bar-wrap">
         <div id="loading-bar" class="loading-bar"></div>
       </div>
-      <div class="loading-version">v1.1.0</div>
+      <div class="loading-version">v1.1.1</div>
     </div>
   </div>
 
@@ -41,10 +41,31 @@
         </div>
       </header>
 
+      <div id="section-wave-header" class="section-wave-header" style="display:none">
+        <canvas id="header-wave-canvas" class="header-wave-canvas"></canvas>
+        <div class="section-wave-content">
+          <div class="section-wave-balance-wrap">
+            <span class="section-wave-label">Total Balance</span>
+            <span class="section-wave-value" id="header-balance-display">$0.00</span>
+          </div>
+          <div class="section-wave-chips">
+            <div class="section-wave-chip">
+              <span>Available</span>
+              <strong id="header-avail-display">$0.00</strong>
+            </div>
+            <div class="section-wave-chip">
+              <span>Monthly Left</span>
+              <strong id="header-monthly-display">$0.00</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- DASHBOARD -->
       <section id="section-dashboard" class="section active">
         <div class="home-hero">
           <div class="hero-primary-card">
+            <canvas id="hero-wave-canvas" class="hero-wave-canvas"></canvas>
             <div class="hero-label">Total Balance</div>
             <div class="hero-value" id="dash-total-balance">$0.00</div>
             <div class="hero-sub">All accounts combined</div>
@@ -426,6 +447,14 @@
             <div class="card-value" id="budget-weekly">$0.00</div>
             <div class="card-sub">Per week</div>
           </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Balance Allocation</h2>
+          </div>
+          <div class="panel-desc">How your income and account balances are divided between bills, discretionary spending, and savings.</div>
+          <div id="balance-allocation-display" class="balance-allocation-grid"></div>
         </div>
 
         <div class="panel">
@@ -1093,6 +1122,18 @@
       </div>
     </div>
 
+    <!-- Bill Month Detail -->
+    <div id="modal-bill-month" class="modal hidden" style="max-width:560px">
+      <div class="modal-header">
+        <h3 id="modal-bill-month-title">Bill Detail</h3>
+        <button class="modal-close" onclick="closeModal('modal-bill-month')">✕</button>
+      </div>
+      <div id="modal-bill-month-content" style="display:flex;flex-direction:column;gap:16px"></div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal('modal-bill-month')">Close</button>
+      </div>
+    </div>
+
     <!-- Add/Edit Deposit -->
     <div id="modal-deposit" class="modal hidden">
       <div class="modal-header">
@@ -1188,7 +1229,7 @@
           <div class="panel-header"><h2>ℹ️ About</h2></div>
           <div style="font-size:13px;color:var(--text-muted);line-height:1.8">
             <div><strong style="color:var(--text)">TrackWise</strong> — Personal desktop finance app</div>
-            <div>Version 1.1.0</div>
+            <div>Version 1.1.1</div>
             <div style="margin-top:8px">All your data is stored locally on this device. Nothing is sent to external servers.</div>
           </div>
         </div>
@@ -1214,7 +1255,7 @@
         <li><a href="#" class="nav-link" data-section="goals">&#127919; Savings Goals</a></li>
         <li><a href="#" class="nav-link" data-section="settings">&#9881; Settings</a></li>
       </ul>
-      <div class="nav-drawer-footer">v1.1.0</div>
+      <div class="nav-drawer-footer">v1.1.1</div>
     </nav>
   </div>
 

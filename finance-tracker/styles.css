@@ -245,6 +245,10 @@ body {
   background: white;
 }
 .input::placeholder { color: var(--text-muted); }
+select.input, select {
+  color: var(--text);
+  background: var(--input-bg, var(--bg3));
+}
 
 .select-sm {
   background: var(--bg3);
@@ -706,6 +710,52 @@ a.link:hover { text-decoration: underline; }
   background: radial-gradient(circle, rgba(124,58,237,0.3) 0%, transparent 70%);
   border-radius: 50%;
 }
+.hero-wave-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 24px;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* ─── Section Wave Header ────────────────────────────────────────── */
+.section-wave-header {
+  position: relative; overflow: hidden;
+  height: 90px; flex-shrink: 0;
+  display: flex; align-items: center;
+}
+.header-wave-canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; opacity: 0.55;
+}
+.section-wave-content {
+  position: relative; z-index: 1;
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; padding: 0 32px;
+}
+.section-wave-balance-wrap { display: flex; flex-direction: column; gap: 2px; }
+.section-wave-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: rgba(255,255,255,0.5); }
+.section-wave-value { font-size: 28px; font-weight: 900; color: white; letter-spacing: -1px; }
+.section-wave-chips { display: flex; gap: 16px; }
+.section-wave-chip {
+  display: flex; flex-direction: column; gap: 3px;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px; padding: 8px 14px; min-width: 100px;
+}
+.section-wave-chip span { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(255,255,255,0.5); }
+.section-wave-chip strong { font-size: 16px; font-weight: 800; color: white; }
+
+/* ─── Balance Allocation ─────────────────────────────────────────── */
+.balance-allocation-grid { display: flex; flex-direction: column; gap: 10px; }
+.bal-alloc-row { display: flex; align-items: flex-start; gap: 14px; padding: 4px 0; }
+.bal-alloc-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; margin-top: 2px; }
+.bal-alloc-info { flex: 1; min-width: 0; }
+.bal-alloc-label { font-size: 13px; font-weight: 700; color: var(--text); }
+.bal-alloc-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.bal-alloc-amount { font-size: 17px; font-weight: 800; white-space: nowrap; padding-top: 4px; }
+.bal-alloc-divider { height: 1px; background: var(--border); margin: 4px 0; }
 .hero-label { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; }
 .hero-value { font-size: 52px; font-weight: 900; color: white; letter-spacing: -2px; margin: 8px 0 4px; line-height: 1; }
 .hero-sub { font-size: 13px; color: rgba(255,255,255,0.45); margin-bottom: 24px; }
@@ -815,6 +865,31 @@ a.link:hover { text-decoration: underline; }
 [data-theme="dark"] .savings-alloc-stat { border-bottom-color: var(--border); }
 [data-theme="dark"] .outlook-stat { border-bottom-color: var(--border); }
 [data-theme="dark"] .income-item { border-bottom-color: var(--border); }
+
+/* Dark mode dropdown/select options */
+[data-theme="dark"] select,
+[data-theme="dark"] select option {
+  background-color: var(--bg2);
+  color: var(--text);
+}
+[data-theme="dark"] select:focus {
+  background-color: var(--bg2);
+  border-color: var(--purple);
+  outline: none;
+}
+/* Force option hover/selected to use purple */
+[data-theme="dark"] select option:checked,
+[data-theme="dark"] select option:hover {
+  background: var(--purple) !important;
+  color: white !important;
+}
+
+/* General hover clarity in dark mode */
+[data-theme="dark"] .btn:hover { filter: brightness(1.15); }
+[data-theme="dark"] .bill-item:hover .bill-name,
+[data-theme="dark"] .tx-item:hover .tx-name { color: #c4b5fd; }
+[data-theme="dark"] input::placeholder { color: var(--text-muted); }
+[data-theme="dark"] .nav-link:hover { background: rgba(255,255,255,0.1); color: white; }
 
 /* ─── Theme Picker (Settings) ───────────────────────────────────── */
 .theme-options { display: flex; gap: 16px; }
