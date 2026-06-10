@@ -267,19 +267,20 @@ function renderDashboard() {
   if (grandTotal > 0) {
     const donutData = [essential, subs];
     const donutLabels = ['Essential', 'Subscriptions'];
-    const donutColors = ['#ef4444', '#f59e0b'];
+    const donutColors = ['#ef4444', '#f97316'];
     if (varHigh > 0) { donutData.push(varHigh); donutLabels.push('Variable Bills'); donutColors.push('#06b6d4'); }
-    if (ccMonthly > 0) { donutData.push(ccMonthly); donutLabels.push('CC Payments'); donutColors.push('#a855f7'); }
-    if (savingsOut > 0) { donutData.push(savingsOut); donutLabels.push('Savings'); donutColors.push('#2ec47a'); }
+    if (ccMonthly > 0) { donutData.push(ccMonthly); donutLabels.push('CC Payments'); donutColors.push('#7c3aed'); }
+    if (savingsOut > 0) { donutData.push(savingsOut); donutLabels.push('Savings'); donutColors.push('#10b981'); }
     billsChart = new Chart(billCtx, {
       type: 'doughnut',
       data: {
         labels: donutLabels,
-        datasets: [{ data: donutData, backgroundColor: donutColors, borderWidth: 0, hoverOffset: 4 }]
+        datasets: [{ data: donutData, backgroundColor: donutColors, borderWidth: 0, hoverOffset: 6 }]
       },
       options: {
-        plugins: { legend: { labels: { color: '#7a8099', font: { size: 11 } } } },
-        cutout: '65%'
+        animation: { duration: 900, easing: 'easeInOutQuart' },
+        plugins: { legend: { labels: { color: '#9ca3af', font: { size: 11, family: 'Inter' } } } },
+        cutout: '68%'
       }
     });
   }
@@ -294,13 +295,14 @@ function renderDashboard() {
       labels: ['Spent', 'Remaining'],
       datasets: [{
         data: [spent, Math.max(0, disc - spent)],
-        backgroundColor: [pct > 90 ? '#ef4444' : '#4f8ef7', '#1e2330'],
-        borderWidth: 0
+        backgroundColor: [pct > 90 ? '#ef4444' : '#7c3aed', '#ede9fe'],
+        borderWidth: 0, hoverOffset: 4
       }]
     },
     options: {
+      animation: { duration: 900, easing: 'easeInOutQuart' },
       plugins: { legend: { display: false } },
-      cutout: '70%'
+      cutout: '72%'
     }
   });
 
@@ -724,7 +726,7 @@ function renderBillHistory() {
         return def ? `${def.name}: ${fmt(e.amount)}` : '';
       }).filter(Boolean);
 
-      return `<tr${isCurrent ? ' style="background:rgba(79,142,247,0.07)"' : ''}>
+      return `<tr${isCurrent ? ' style="background:rgba(99,102,241,0.07)"' : ''}>
         <td><strong>${monthLabel(m)}</strong>${isCurrent ? ' <span style="color:#4f8ef7;font-size:10px">(current)</span>' : ''}</td>
         <td>${fmt(fixedTotal)}</td>
         <td>${varDisplay}${!allEntered && varDefs.length > 0 ? ' <span style="color:#f59e0b;font-size:10px">⚠ incomplete</span>' : ''}</td>
@@ -859,17 +861,18 @@ function renderSpending() {
   txs.forEach(t => { catTotals[t.category] = (catTotals[t.category] || 0) + t.amount; });
   const catLabels = Object.keys(catTotals);
   const catData = catLabels.map(k => catTotals[k]);
-  const colors = ['#4f8ef7','#f59e0b','#a855f7','#2ec47a','#ef4444','#06b6d4','#f97316','#84cc16','#e879f9','#7a8099'];
+  const colors = ['#6366f1','#f97316','#7c3aed','#10b981','#ef4444','#06b6d4','#fb923c','#84cc16','#e879f9','#9ca3af'];
 
   categoryChart = new Chart(catCtx, {
     type: 'doughnut',
     data: {
       labels: catLabels,
-      datasets: [{ data: catData, backgroundColor: colors.slice(0, catLabels.length), borderWidth: 0, hoverOffset: 4 }]
+      datasets: [{ data: catData, backgroundColor: colors.slice(0, catLabels.length), borderWidth: 0, hoverOffset: 6 }]
     },
     options: {
-      plugins: { legend: { position: 'right', labels: { color: '#7a8099', font: { size: 11 }, padding: 8 } } },
-      cutout: '55%'
+      animation: { duration: 850, easing: 'easeInOutQuart' },
+      plugins: { legend: { position: 'right', labels: { color: '#9ca3af', font: { size: 11, family: 'Inter' }, padding: 10 } } },
+      cutout: '58%'
     }
   });
 
@@ -891,15 +894,17 @@ function renderSpending() {
       datasets: [{
         label: 'Spending',
         data: sortedMonths.map(k => monthlyTotals[k]),
-        backgroundColor: '#4f8ef7',
-        borderRadius: 4
+        backgroundColor: 'rgba(124,58,237,0.75)',
+        hoverBackgroundColor: '#7c3aed',
+        borderRadius: 8
       }]
     },
     options: {
+      animation: { duration: 750, easing: 'easeInOutCubic' },
       plugins: { legend: { display: false } },
       scales: {
-        x: { ticks: { color: '#7a8099', font: { size: 10 } }, grid: { display: false } },
-        y: { ticks: { color: '#7a8099', font: { size: 10 }, callback: v => '$' + v.toLocaleString() }, grid: { color: '#2a2f3d' } }
+        x: { ticks: { color: '#9ca3af', font: { size: 10, family: 'Inter' } }, grid: { display: false } },
+        y: { ticks: { color: '#9ca3af', font: { size: 10, family: 'Inter' }, callback: v => '$' + v.toLocaleString() }, grid: { color: '#e8e4f3' } }
       }
     }
   });
@@ -936,7 +941,7 @@ function renderBudget() {
   const remainPct  = inc > 0 ? Math.max(0, (remaining / inc) * 100) : 0;
 
   const spendVsTarget = spendTarget > 0
-    ? `<span style="color:${spent > spendTarget ? '#ef4444' : '#2ec47a'}">${fmt(spent)} of ${fmt(spendTarget)} target</span>`
+    ? `<span style="color:${spent > spendTarget ? '#ef4444' : '#10b981'}">${fmt(spent)} of ${fmt(spendTarget)} target</span>`
     : `<span>${fmt(spent)} spent</span>`;
 
   breakdown.innerHTML = `
@@ -954,11 +959,11 @@ function renderBudget() {
         ${spendTarget > 0
           ? `<div class="budget-bar-fill" style="width:${Math.min(100,targetPct)}%;background:#1e3a5f;position:relative"></div>`
           : ''}
-        <div class="budget-bar-fill" style="width:${Math.min(100,spendPct)}%;background:${spent > spendTarget && spendTarget > 0 ? '#ef4444' : '#f59e0b'};margin-top:${spendTarget > 0 ? '-8px' : '0'}"></div>
+        <div class="budget-bar-fill" style="width:${Math.min(100,spendPct)}%;background:${spent > spendTarget && spendTarget > 0 ? '#ef4444' : '#f97316'};margin-top:${spendTarget > 0 ? '-8px' : '0'}"></div>
       </div>
     </div>
     <div class="budget-item">
-      <div class="budget-item-header"><span>Remaining</span><span style="color:${remaining >= 0 ? '#2ec47a' : '#ef4444'}">${fmt(Math.abs(remaining))} ${remaining < 0 ? 'over' : 'left'}</span></div>
+      <div class="budget-item-header"><span>Remaining</span><span style="color:${remaining >= 0 ? '#10b981' : '#ef4444'}">${fmt(Math.abs(remaining))} ${remaining < 0 ? 'over' : 'left'}</span></div>
       <div class="budget-bar-track"><div class="budget-bar-fill" style="width:${Math.min(100,remainPct)}%;background:#2ec47a"></div></div>
     </div>
   `;
@@ -976,8 +981,9 @@ function renderBudget() {
   const datasets = [{
     label: 'Spent This Month',
     data: cats.map(c => catTotals[c]),
-    backgroundColor: '#4f8ef7',
-    borderRadius: 4
+    backgroundColor: 'rgba(99,102,241,0.75)',
+    hoverBackgroundColor: '#6366f1',
+    borderRadius: 6
   }];
 
   if (spendTarget > 0 && cats.length > 0) {
@@ -985,8 +991,8 @@ function renderBudget() {
     datasets.push({
       label: 'Target (even split)',
       data: cats.map(() => perCat),
-      backgroundColor: 'rgba(245,158,11,0.25)',
-      borderRadius: 4
+      backgroundColor: 'rgba(124,58,237,0.15)',
+      borderRadius: 6
     });
   }
 
@@ -994,11 +1000,12 @@ function renderBudget() {
     type: 'bar',
     data: { labels: cats, datasets },
     options: {
+      animation: { duration: 800, easing: 'easeInOutCubic' },
       indexAxis: 'y',
-      plugins: { legend: { labels: { color: '#7a8099', font: { size: 11 } } } },
+      plugins: { legend: { labels: { color: '#9ca3af', font: { size: 11, family: 'Inter' }, boxWidth: 12 } } },
       scales: {
-        x: { ticks: { color: '#7a8099', font: { size: 10 }, callback: v => '$' + v }, grid: { color: '#2a2f3d' } },
-        y: { ticks: { color: '#7a8099', font: { size: 11 } }, grid: { display: false } }
+        x: { ticks: { color: '#9ca3af', font: { size: 10, family: 'Inter' }, callback: v => '$' + v }, grid: { color: '#e8e4f3' } },
+        y: { ticks: { color: '#9ca3af', font: { size: 11, family: 'Inter' } }, grid: { display: false } }
       }
     }
   });
@@ -1014,7 +1021,7 @@ function renderBudget() {
   progressList.innerHTML = cats.map(cat => {
     const s = catTotals[cat];
     const pct = budgetPerCat > 0 ? Math.min(100, (s / budgetPerCat) * 100) : 0;
-    const color = pct > 90 ? '#ef4444' : pct > 70 ? '#f59e0b' : '#2ec47a';
+    const color = pct > 90 ? '#ef4444' : pct > 70 ? '#f97316' : '#10b981';
     const budgetLabel = budgetPerCat > 0 ? ` of ${fmt(budgetPerCat)}` : '';
     return `
       <div class="progress-item">
@@ -1102,16 +1109,17 @@ function renderOutlook() {
     data: {
       labels,
       datasets: [
-        { label: 'Total Balance', data: totalData, borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.1)', fill: true, tension: 0.3, pointRadius: 3 },
-        { label: 'Checking', data: checkingData, borderColor: '#2ec47a', backgroundColor: 'transparent', tension: 0.3, pointRadius: 3 },
-        { label: 'Savings', data: savingsData, borderColor: '#a855f7', backgroundColor: 'transparent', tension: 0.3, pointRadius: 3 }
+        { label: 'Total Balance', data: totalData, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.08)', fill: true, tension: 0.4, pointRadius: 3, pointBackgroundColor: '#6366f1', borderWidth: 2.5 },
+        { label: 'Checking', data: checkingData, borderColor: '#10b981', backgroundColor: 'transparent', tension: 0.4, pointRadius: 3, pointBackgroundColor: '#10b981', borderWidth: 2 },
+        { label: 'Savings', data: savingsData, borderColor: '#7c3aed', backgroundColor: 'transparent', tension: 0.4, pointRadius: 3, pointBackgroundColor: '#7c3aed', borderWidth: 2 }
       ]
     },
     options: {
-      plugins: { legend: { labels: { color: '#7a8099', font: { size: 11 } } } },
+      animation: { duration: 1000, easing: 'easeInOutQuart' },
+      plugins: { legend: { labels: { color: '#9ca3af', font: { size: 11, family: 'Inter' }, boxWidth: 12 } } },
       scales: {
-        x: { ticks: { color: '#7a8099', font: { size: 10 } }, grid: { color: '#2a2f3d' } },
-        y: { ticks: { color: '#7a8099', font: { size: 10 }, callback: v => '$' + v.toLocaleString() }, grid: { color: '#2a2f3d' } }
+        x: { ticks: { color: '#9ca3af', font: { size: 10, family: 'Inter' } }, grid: { color: '#e8e4f3' } },
+        y: { ticks: { color: '#9ca3af', font: { size: 10, family: 'Inter' }, callback: v => '$' + v.toLocaleString() }, grid: { color: '#e8e4f3' } }
       }
     }
   });
@@ -1159,7 +1167,7 @@ function renderOutlook() {
     </div>
     <div class="outlook-stat">
       <span class="outlook-stat-label">Net Change</span>
-      <span class="outlook-stat-value" style="color:${totalGrowth >= 0 ? '#2ec47a' : '#ef4444'}">${totalGrowth >= 0 ? '+' : ''}${fmt(totalGrowth)}</span>
+      <span class="outlook-stat-value" style="color:${totalGrowth >= 0 ? '#10b981' : '#ef4444'}">${totalGrowth >= 0 ? '+' : ''}${fmt(totalGrowth)}</span>
     </div>
     <div class="outlook-stat">
       <span class="outlook-stat-label">Avg Monthly Spending Used</span>
@@ -1555,18 +1563,19 @@ function renderUnexpected() {
   items.forEach(u => { catTotals[u.category] = (catTotals[u.category] || 0) + u.amount; });
   const cats = Object.keys(catTotals);
   if (cats.length === 0) return;
-  const colors = ['#ef4444','#f59e0b','#a855f7','#4f8ef7','#2ec47a','#06b6d4','#f97316','#84cc16'];
+  const colors = ['#ef4444','#f97316','#7c3aed','#6366f1','#10b981','#06b6d4','#f97316','#84cc16'];
   unexpectedChart = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: cats,
-      datasets: [{ label: 'Total Spent', data: cats.map(c => catTotals[c]), backgroundColor: colors.slice(0, cats.length), borderRadius: 4 }]
+      datasets: [{ label: 'Total Spent', data: cats.map(c => catTotals[c]), backgroundColor: colors.slice(0, cats.length), borderRadius: 8 }]
     },
     options: {
+      animation: { duration: 800, easing: 'easeInOutCubic' },
       plugins: { legend: { display: false } },
       scales: {
-        x: { ticks: { color: '#7a8099', font: { size: 11 } }, grid: { display: false } },
-        y: { ticks: { color: '#7a8099', font: { size: 10 }, callback: v => '$' + v.toLocaleString() }, grid: { color: '#2a2f3d' } }
+        x: { ticks: { color: '#9ca3af', font: { size: 11, family: 'Inter' } }, grid: { display: false } },
+        y: { ticks: { color: '#9ca3af', font: { size: 10, family: 'Inter' }, callback: v => '$' + v.toLocaleString() }, grid: { color: '#e8e4f3' } }
       }
     }
   });
@@ -1600,7 +1609,7 @@ function renderCreditCards() {
       const netClass = 'cc-network-' + network.toLowerCase().replace(' ', '');
       const issuerDisplay = c.issuer === 'Other' ? (c.customIssuer || 'Other') : (c.issuer || '—');
       const cardUtil = c.limit > 0 ? ((c.balance / c.limit) * 100).toFixed(1) : 0;
-      const utilColor = cardUtil > 75 ? '#ef4444' : cardUtil > 30 ? '#f59e0b' : '#2ec47a';
+      const utilColor = cardUtil > 75 ? '#ef4444' : cardUtil > 30 ? '#f97316' : '#10b981';
       return `<div class="cc-card">
         <div class="cc-card-header">
           <div class="cc-card-title">
@@ -1686,7 +1695,7 @@ function renderCreditCards() {
         ${cards.map(c => {
           const mo = calcPayoffMonths(c);
           const pct = c.limit > 0 ? Math.min(100, (c.balance / c.limit) * 100) : 0;
-          const color = pct > 75 ? '#ef4444' : pct > 30 ? '#f59e0b' : '#2ec47a';
+          const color = pct > 75 ? '#ef4444' : pct > 30 ? '#f97316' : '#10b981';
           return `<div class="cc-payoff-card-row">
             <span>${c.name}</span>
             <span>${fmt(c.balance || 0)} balance</span>
