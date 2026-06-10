@@ -4,7 +4,11 @@ let state = {
   income: { monthly: 0, frequency: 'monthly' },
   additionalIncome: [], // { id, name, amount, frequency }
   bills: [],            // { id, name, amount, type:'essential'|'subscription', category, dueDay }
+  creditCards: [],      // { id, name, balance, limit, apr, minPayment, dueDay }
+  ccExtraAllocation: 0, // extra monthly debt payoff amount
+  savingsAllocation: 0, // manual monthly savings allocation
   transactions: [],     // { id, description, amount, date, category, account, note }
+  unexpected: [],       // { id, description, amount, date, category, account, note }
   goals: [],            // { id, name, target, saved, targetDate, account }
   budget: { monthlySpendingTarget: 0, monthlySavingsTarget: 0 }
 };
@@ -69,6 +73,18 @@ function totalMonthlyIncome() {
   return state.income.monthly + totalAdditionalIncome();
 }
 
+function totalCCDebt() {
+  return (state.creditCards || []).reduce((s, c) => s + c.balance, 0);
+}
+
+function totalCCMinPayments() {
+  return (state.creditCards || []).reduce((s, c) => s + c.minPayment, 0);
+}
+
+function totalCCMonthlyCommitment() {
+  return totalCCMinPayments() + (state.ccExtraAllocation || 0);
+}
+
 function totalBills() {
   return state.bills.reduce((s, b) => s + b.amount, 0);
 }
@@ -82,7 +98,8 @@ function totalSubscriptions() {
 }
 
 function discretionaryBudget() {
-  return totalMonthlyIncome() - totalBills() - (state.budget?.monthlySavingsTarget || 0);
+  const savingsOut = Math.max(state.budget?.monthlySavingsTarget || 0, state.savingsAllocation || 0);
+  return totalMonthlyIncome() - totalBills() - totalCCMonthlyCommitment() - savingsOut;
 }
 
 function weeklyBudget() {
@@ -119,6 +136,7 @@ function navigate(section) {
     spending: 'Spending',
     budget: 'Budget',
     outlook: 'Outlook',
+    unexpected: 'Unexpected Expenses',
     goals: 'Savings Goals'
   }[section] || section;
 
@@ -132,6 +150,7 @@ function renderSection(section) {
   if (section === 'spending') renderSpending();
   if (section === 'budget') renderBudget();
   if (section === 'outlook') renderOutlook();
+  if (section === 'unexpected') renderUnexpected();
   if (section === 'goals') renderGoals();
 }
 
@@ -330,6 +349,59 @@ function renderBills() {
 
   document.getElementById('essential-total-footer').textContent = fmt(totalEssential());
   document.getElementById('subscription-total-footer').textContent = fmt(totalSubscriptions());
+
+  // Credit cards
+  const cards = state.creditCards || [];
+  const ccList = document.getElementById('credit-card-list');
+  ccList.innerHTML = cards.length ? cards.map(c => {
+    const util = c.limit > 0 ? Math.min(100, (c.balance / c.limit) * 100) : 0;
+    const utilColor = util > 75 ? '#ef4444' : util > 50 ? '#f59e0b' : '#2ec47a';
+    return `
+      <div class="bill-item" style="flex-direction:column;align-items:stretch;gap:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="bill-item-left">
+            <span class="bill-name">💳 ${c.name}</span>
+            <span class="bill-meta">APR ${c.apr}% &middot; Due day ${c.dueDay || 'N/A'} &middot; Min payment ${fmt(c.minPayment)}</span>
+          </div>
+          <div class="bill-item-right">
+            <span class="bill-amount">${fmt(c.balance)}</span>
+            <div class="bill-actions">
+              <button onclick="editCreditCard('${c.id}')" title="Edit">&#9998;</button>
+              <button onclick="deleteCreditCard('${c.id}')" title="Delete">&#10005;</button>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:#7a8099;margin-bottom:3px">
+            <span>Utilization</span><span style="color:${utilColor}">${util.toFixed(0)}% of ${fmt(c.limit)}</span>
+          </div>
+          <div class="budget-bar-track"><div class="budget-bar-fill" style="width:${util}%;background:${utilColor}"></div></div>
+        </div>
+      </div>`;
+  }).join('') : '<div class="empty-state">No credit cards added yet.</div>';
+
+  document.getElementById('cc-total-balance').textContent = fmt(totalCCDebt());
+  document.getElementById('cc-total-payments').textContent = fmt(totalCCMinPayments());
+  document.getElementById('cc-extra-display').textContent = fmt(state.ccExtraAllocation || 0);
+  document.getElementById('cc-extra-allocation').value = state.ccExtraAllocation || '';
+
+  // Estimate payoff time (simplified: total balance / total monthly payment)
+  const totalPayment = totalCCMonthlyCommitment();
+  if (totalCCDebt() > 0 && totalPayment > 0) {
+    const months = Math.ceil(totalCCDebt() / totalPayment);
+    const yrs = Math.floor(months / 12);
+    const mos = months % 12;
+    document.getElementById('cc-payoff-time').textContent = yrs > 0 ? `~${yrs}y ${mos}m` : `~${mos} months`;
+  } else {
+    document.getElementById('cc-payoff-time').textContent = totalCCDebt() === 0 ? '🎉 Paid off!' : '—';
+  }
+
+  // Savings allocation panel
+  const savingsAlloc = state.savingsAllocation || 0;
+  document.getElementById('savings-alloc-input').value = savingsAlloc || '';
+  document.getElementById('savings-alloc-balance').textContent = fmt(state.accounts.savings);
+  document.getElementById('savings-alloc-projected').textContent = fmt(state.accounts.savings + savingsAlloc);
+  document.getElementById('savings-alloc-remaining').textContent = fmt(Math.max(0, discretionaryBudget()));
 }
 
 /* ─── Spending ──────────────────────────────────────────────────── */
@@ -981,6 +1053,195 @@ function saveGoal() {
 function deleteGoal(id) {
   if (!confirm('Delete this goal?')) return;
   state.goals = state.goals.filter(g => g.id !== id);
+  saveState();
+  renderSection(currentSection());
+}
+
+/* ─── Unexpected Expenses ───────────────────────────────────────── */
+let unexpectedChart;
+
+function renderUnexpected() {
+  const items = state.unexpected || [];
+  const key = currentMonthKey();
+  const thisMonth = items.filter(u => u.date.startsWith(key));
+  const monthTotal = thisMonth.reduce((s, u) => s + u.amount, 0);
+  const allTotal = items.reduce((s, u) => s + u.amount, 0);
+
+  document.getElementById('unexp-month-total').textContent = fmt(monthTotal);
+  document.getElementById('unexp-all-total').textContent = fmt(allTotal);
+  document.getElementById('unexp-count').textContent = items.length;
+
+  const sorted = [...items].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const list = document.getElementById('unexpected-list');
+  list.innerHTML = sorted.length ? sorted.map(u => {
+    const icons = { 'Medical': '🏥', 'Veterinary': '🐾', 'Car Repair': '🔧', 'Home Repair': '🏠', 'Emergency Travel': '✈️', 'Appliance': '🔌', 'Legal': '⚖️', 'Other Unexpected': '⚠️' };
+    const icon = icons[u.category] || '⚠️';
+    return `<div class="tx-item">
+      <div class="tx-item-left">
+        <div class="tx-icon cat-other" style="background:rgba(239,68,68,0.15);color:#ef4444">${icon}</div>
+        <div class="tx-info">
+          <div class="tx-name">${u.description}</div>
+          <div class="tx-meta">${u.category} &middot; ${formatDate(u.date)} &middot; ${u.account}${u.note ? ' &middot; ' + u.note : ''}</div>
+        </div>
+      </div>
+      <div class="tx-item-right">
+        <span class="tx-amount amount-red">-${fmt(u.amount)}</span>
+        <div class="tx-actions">
+          <button onclick="editUnexpected('${u.id}')" title="Edit">&#9998;</button>
+          <button onclick="deleteUnexpected('${u.id}')" title="Delete">&#10005;</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('') : '<div class="empty-state">No unexpected expenses recorded yet.</div>';
+
+  // Chart by category
+  const ctx = document.getElementById('unexpected-chart').getContext('2d');
+  if (unexpectedChart) unexpectedChart.destroy();
+  const catTotals = {};
+  items.forEach(u => { catTotals[u.category] = (catTotals[u.category] || 0) + u.amount; });
+  const cats = Object.keys(catTotals);
+  if (cats.length === 0) return;
+  const colors = ['#ef4444','#f59e0b','#a855f7','#4f8ef7','#2ec47a','#06b6d4','#f97316','#84cc16'];
+  unexpectedChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: cats,
+      datasets: [{ label: 'Total Spent', data: cats.map(c => catTotals[c]), backgroundColor: colors.slice(0, cats.length), borderRadius: 4 }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#7a8099', font: { size: 11 } }, grid: { display: false } },
+        y: { ticks: { color: '#7a8099', font: { size: 10 }, callback: v => '$' + v.toLocaleString() }, grid: { color: '#2a2f3d' } }
+      }
+    }
+  });
+}
+
+// Credit Card modals
+function openAddCreditCard() {
+  document.getElementById('modal-cc-title').textContent = 'Add Credit Card';
+  document.getElementById('cc-edit-id').value = '';
+  document.getElementById('cc-name').value = '';
+  document.getElementById('cc-balance').value = '';
+  document.getElementById('cc-limit').value = '';
+  document.getElementById('cc-apr').value = '';
+  document.getElementById('cc-min-payment').value = '';
+  document.getElementById('cc-due-day').value = '';
+  openModal('modal-credit-card');
+}
+
+function editCreditCard(id) {
+  const c = (state.creditCards || []).find(c => c.id === id);
+  if (!c) return;
+  document.getElementById('modal-cc-title').textContent = 'Edit Credit Card';
+  document.getElementById('cc-edit-id').value = c.id;
+  document.getElementById('cc-name').value = c.name;
+  document.getElementById('cc-balance').value = c.balance;
+  document.getElementById('cc-limit').value = c.limit;
+  document.getElementById('cc-apr').value = c.apr;
+  document.getElementById('cc-min-payment').value = c.minPayment;
+  document.getElementById('cc-due-day').value = c.dueDay || '';
+  openModal('modal-credit-card');
+}
+
+function saveCreditCard() {
+  const name = document.getElementById('cc-name').value.trim();
+  const balance = parseFloat(document.getElementById('cc-balance').value) || 0;
+  const limit = parseFloat(document.getElementById('cc-limit').value) || 0;
+  const apr = parseFloat(document.getElementById('cc-apr').value) || 0;
+  const minPayment = parseFloat(document.getElementById('cc-min-payment').value) || 0;
+  const dueDay = parseInt(document.getElementById('cc-due-day').value) || null;
+  const editId = document.getElementById('cc-edit-id').value;
+
+  if (!name) return alert('Please enter a card name.');
+  if (!state.creditCards) state.creditCards = [];
+
+  if (editId) {
+    const idx = state.creditCards.findIndex(c => c.id === editId);
+    if (idx >= 0) state.creditCards[idx] = { ...state.creditCards[idx], name, balance, limit, apr, minPayment, dueDay };
+  } else {
+    state.creditCards.push({ id: uid(), name, balance, limit, apr, minPayment, dueDay });
+  }
+  saveState();
+  closeModal('modal-credit-card');
+  renderSection(currentSection());
+}
+
+function deleteCreditCard(id) {
+  if (!confirm('Remove this credit card?')) return;
+  state.creditCards = (state.creditCards || []).filter(c => c.id !== id);
+  saveState();
+  renderSection(currentSection());
+}
+
+function saveCCExtra() {
+  const val = parseFloat(document.getElementById('cc-extra-allocation').value) || 0;
+  state.ccExtraAllocation = val;
+  saveState();
+  renderSection(currentSection());
+}
+
+function saveSavingsAlloc() {
+  const val = parseFloat(document.getElementById('savings-alloc-input').value) || 0;
+  state.savingsAllocation = val;
+  saveState();
+  renderSection(currentSection());
+}
+
+// Unexpected expense modals
+function openAddUnexpected() {
+  document.getElementById('modal-unexp-title').textContent = 'Add Unexpected Expense';
+  document.getElementById('unexp-edit-id').value = '';
+  document.getElementById('unexp-description').value = '';
+  document.getElementById('unexp-amount').value = '';
+  document.getElementById('unexp-date').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('unexp-category').value = 'Medical';
+  document.getElementById('unexp-account').value = 'checking';
+  document.getElementById('unexp-note').value = '';
+  openModal('modal-unexpected');
+}
+
+function editUnexpected(id) {
+  const u = (state.unexpected || []).find(u => u.id === id);
+  if (!u) return;
+  document.getElementById('modal-unexp-title').textContent = 'Edit Unexpected Expense';
+  document.getElementById('unexp-edit-id').value = u.id;
+  document.getElementById('unexp-description').value = u.description;
+  document.getElementById('unexp-amount').value = u.amount;
+  document.getElementById('unexp-date').value = u.date;
+  document.getElementById('unexp-category').value = u.category;
+  document.getElementById('unexp-account').value = u.account;
+  document.getElementById('unexp-note').value = u.note || '';
+  openModal('modal-unexpected');
+}
+
+function saveUnexpected() {
+  const description = document.getElementById('unexp-description').value.trim();
+  const amount = parseFloat(document.getElementById('unexp-amount').value);
+  const date = document.getElementById('unexp-date').value;
+  const category = document.getElementById('unexp-category').value;
+  const account = document.getElementById('unexp-account').value;
+  const note = document.getElementById('unexp-note').value.trim();
+  const editId = document.getElementById('unexp-edit-id').value;
+
+  if (!description || isNaN(amount) || amount <= 0 || !date) return alert('Please fill in all required fields.');
+  if (!state.unexpected) state.unexpected = [];
+
+  if (editId) {
+    const idx = state.unexpected.findIndex(u => u.id === editId);
+    if (idx >= 0) state.unexpected[idx] = { ...state.unexpected[idx], description, amount, date, category, account, note };
+  } else {
+    state.unexpected.push({ id: uid(), description, amount, date, category, account, note });
+  }
+  saveState();
+  closeModal('modal-unexpected');
+  renderSection(currentSection());
+}
+
+function deleteUnexpected(id) {
+  if (!confirm('Delete this expense?')) return;
+  state.unexpected = (state.unexpected || []).filter(u => u.id !== id);
   saveState();
   renderSection(currentSection());
 }

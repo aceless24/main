@@ -533,6 +533,84 @@ body {
 .cat-health { background: rgba(239,68,68,0.15); color: var(--red); }
 .cat-other { background: rgba(122,128,153,0.15); color: var(--text-muted); }
 
+/* ─── Credit Card Debt ─────────────────────────────────────────── */
+.cc-summary-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.cc-summary-stat {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.cc-summary-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.cc-summary-value {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.cc-extra-alloc {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.cc-extra-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+/* ─── Savings Allocation ───────────────────────────────────────── */
+.savings-alloc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.savings-alloc-info {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.savings-alloc-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.savings-alloc-stat:last-of-type { border-bottom: none; }
+
+@media (max-width: 640px) {
+  .savings-alloc-grid { grid-template-columns: 1fr; }
+  .cc-summary-row { grid-template-columns: 1fr 1fr; }
+}
+
 /* ─── Budget Targets ───────────────────────────────────────────── */
 .budget-targets-grid {
   display: grid;

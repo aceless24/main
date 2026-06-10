@@ -21,6 +21,7 @@
         <li><a href="#" class="nav-link" data-section="spending">&#9632; Spending</a></li>
         <li><a href="#" class="nav-link" data-section="budget">&#9632; Budget</a></li>
         <li><a href="#" class="nav-link" data-section="outlook">&#9632; Outlook</a></li>
+        <li><a href="#" class="nav-link" data-section="unexpected">&#9632; Unexpected</a></li>
         <li><a href="#" class="nav-link" data-section="goals">&#9632; Savings Goals</a></li>
       </ul>
     </nav>
@@ -180,6 +181,76 @@
             </div>
           </div>
         </div>
+
+        <!-- Credit Card Debt -->
+        <div class="panel">
+          <div class="panel-header">
+            <h2>💳 Credit Card Debt</h2>
+            <button class="btn btn-sm btn-primary" onclick="openAddCreditCard()">+ Add Card</button>
+          </div>
+          <div class="cc-summary-row">
+            <div class="cc-summary-stat">
+              <span class="cc-summary-label">Total Debt Balance</span>
+              <span class="cc-summary-value amount-red" id="cc-total-balance">$0.00</span>
+            </div>
+            <div class="cc-summary-stat">
+              <span class="cc-summary-label">Total Monthly Payments</span>
+              <span class="cc-summary-value amount-orange" id="cc-total-payments">$0.00</span>
+            </div>
+            <div class="cc-summary-stat">
+              <span class="cc-summary-label">Extra Monthly Allocation</span>
+              <span class="cc-summary-value amount-green" id="cc-extra-display">$0.00</span>
+            </div>
+            <div class="cc-summary-stat">
+              <span class="cc-summary-label">Est. Payoff Time</span>
+              <span class="cc-summary-value" id="cc-payoff-time">—</span>
+            </div>
+          </div>
+          <div id="credit-card-list" class="bills-list" style="margin-top:12px"></div>
+          <div class="cc-extra-alloc">
+            <label class="budget-target-label">Extra Monthly Debt Payoff Allocation</label>
+            <div class="budget-target-sub">Amount above minimum payments you want to put toward debt each month</div>
+            <div class="cc-extra-row">
+              <div class="budget-target-input-row" style="flex:1">
+                <span class="input-prefix">$</span>
+                <input type="number" id="cc-extra-allocation" class="input budget-target-input" placeholder="0.00" step="0.01" min="0" />
+              </div>
+              <button class="btn btn-primary" onclick="saveCCExtra()">Save</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Savings Allocation -->
+        <div class="panel">
+          <div class="panel-header">
+            <h2>🏦 Monthly Savings Allocation</h2>
+          </div>
+          <div class="savings-alloc-grid">
+            <div class="budget-target-item">
+              <label class="budget-target-label">Amount to Add to Savings This Month</label>
+              <div class="budget-target-sub">Manually set how much you want to move into your savings account each month. This is reflected in your budget breakdown and outlook.</div>
+              <div class="budget-target-input-row">
+                <span class="input-prefix">$</span>
+                <input type="number" id="savings-alloc-input" class="input budget-target-input" placeholder="0.00" step="0.01" min="0" />
+              </div>
+            </div>
+            <div class="savings-alloc-info">
+              <div class="savings-alloc-stat">
+                <span>Current Savings Balance</span>
+                <strong id="savings-alloc-balance">$0.00</strong>
+              </div>
+              <div class="savings-alloc-stat">
+                <span>After This Month's Allocation</span>
+                <strong id="savings-alloc-projected" class="amount-green">$0.00</strong>
+              </div>
+              <div class="savings-alloc-stat">
+                <span>Remaining to Spend After Allocation</span>
+                <strong id="savings-alloc-remaining">$0.00</strong>
+              </div>
+              <button class="btn btn-primary" style="margin-top:12px;width:100%" onclick="saveSavingsAlloc()">Save Allocation</button>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- SPENDING -->
@@ -318,6 +389,38 @@
         </div>
       </section>
 
+      <!-- UNEXPECTED EXPENSES -->
+      <section id="section-unexpected" class="section">
+        <div class="cards-row">
+          <div class="card card-red">
+            <div class="card-label">Total Unexpected (This Month)</div>
+            <div class="card-value" id="unexp-month-total">$0.00</div>
+          </div>
+          <div class="card card-orange">
+            <div class="card-label">Total Unexpected (All Time)</div>
+            <div class="card-value" id="unexp-all-total">$0.00</div>
+          </div>
+          <div class="card card-blue">
+            <div class="card-label">Number of Incidents</div>
+            <div class="card-value" id="unexp-count">0</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Unexpected / One-Time Expenses</h2>
+            <button class="btn btn-sm btn-primary" onclick="openAddUnexpected()">+ Add Expense</button>
+          </div>
+          <p style="font-size:12px;color:#7a8099;margin-bottom:12px">Track one-time unplanned expenses like medical bills, vet visits, car repairs, etc. These are logged separately from your regular spending so they don't skew your monthly budget trend.</p>
+          <div id="unexpected-list" class="transaction-list"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><h2>Unexpected Expenses by Category</h2></div>
+          <canvas id="unexpected-chart" height="220"></canvas>
+        </div>
+      </section>
+
       <!-- GOALS -->
       <section id="section-goals" class="section">
         <div class="panel">
@@ -370,6 +473,105 @@
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeModal('modal-addl-income')">Cancel</button>
         <button class="btn btn-primary" onclick="saveAdditionalIncome()">Save</button>
+      </div>
+    </div>
+
+    <!-- Add/Edit Credit Card -->
+    <div id="modal-credit-card" class="modal hidden">
+      <div class="modal-header">
+        <h3 id="modal-cc-title">Add Credit Card</h3>
+        <button class="modal-close" onclick="closeModal('modal-credit-card')">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="cc-edit-id" />
+        <div class="form-group">
+          <label>Card Name</label>
+          <input type="text" id="cc-name" class="input" placeholder="e.g. Chase Sapphire, Capital One" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Current Balance ($)</label>
+            <input type="number" id="cc-balance" class="input" placeholder="0.00" step="0.01" min="0" />
+          </div>
+          <div class="form-group">
+            <label>Credit Limit ($)</label>
+            <input type="number" id="cc-limit" class="input" placeholder="0.00" step="0.01" min="0" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Interest Rate (APR %)</label>
+            <input type="number" id="cc-apr" class="input" placeholder="e.g. 24.99" step="0.01" min="0" max="100" />
+          </div>
+          <div class="form-group">
+            <label>Minimum Payment ($)</label>
+            <input type="number" id="cc-min-payment" class="input" placeholder="0.00" step="0.01" min="0" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Due Day of Month</label>
+          <input type="number" id="cc-due-day" class="input" placeholder="1-31" min="1" max="31" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-credit-card')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveCreditCard()">Save</button>
+      </div>
+    </div>
+
+    <!-- Add/Edit Unexpected Expense -->
+    <div id="modal-unexpected" class="modal hidden">
+      <div class="modal-header">
+        <h3 id="modal-unexp-title">Add Unexpected Expense</h3>
+        <button class="modal-close" onclick="closeModal('modal-unexpected')">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="unexp-edit-id" />
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" id="unexp-description" class="input" placeholder="e.g. Vet bill, ER visit, Car repair" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Amount ($)</label>
+            <input type="number" id="unexp-amount" class="input" placeholder="0.00" step="0.01" min="0" />
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="unexp-date" class="input" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Category</label>
+            <select id="unexp-category" class="input">
+              <option value="Medical">Medical / Doctor</option>
+              <option value="Veterinary">Veterinary / Pet</option>
+              <option value="Car Repair">Car Repair</option>
+              <option value="Home Repair">Home Repair</option>
+              <option value="Emergency Travel">Emergency Travel</option>
+              <option value="Appliance">Appliance Replacement</option>
+              <option value="Legal">Legal</option>
+              <option value="Other Unexpected">Other Unexpected</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Paid From</label>
+            <select id="unexp-account" class="input">
+              <option value="checking">Checking</option>
+              <option value="savings">Savings</option>
+              <option value="credit">Credit Card</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Notes (optional)</label>
+          <input type="text" id="unexp-note" class="input" placeholder="Any extra details" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-unexpected')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveUnexpected()">Save</button>
       </div>
     </div>
 
