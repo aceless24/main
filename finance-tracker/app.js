@@ -1564,7 +1564,8 @@ function renderOutlook() {
   // Fixed bills + variable bill HIGH estimate (conservative/accurate projection)
   const varEst = totalVariableEstimate(currentMonthKey());
   const varHighMonthly = varEst.max > 0 ? varEst.max : totalVariableBills(currentMonthKey());
-  const bills = totalBills() + varHighMonthly + totalCCMonthlyCommitment();
+  // CC handled separately below — do NOT include in static bills
+  const fixedBills = totalBills() + varHighMonthly;
   const disc = discretionaryBudget();
 
   // Calculate average monthly spending from last 3 months
@@ -1581,20 +1582,53 @@ function renderOutlook() {
   }
   const avgSpending = countedMonths > 0 ? totalSpent / countedMonths : disc * 0.7;
 
+  // ── CC Payoff Simulation ─────────────────────────────────────────
+  // Clone card balances so we can simulate paydown month-by-month
+  const ccCards = (state.creditCards || []).map(c => ({
+    id: c.id,
+    name: c.name,
+    balance: c.balance || 0,
+    apr: c.apr || 0,
+    minPayment: c.minPayment || 0,
+    paymentAllocation: Math.max(c.paymentAllocation || 0, c.minPayment || 0),
+  }));
+
   // Build projection
   const accounts = state.bankAccounts || [];
   let checkingBalance = accounts.filter(a => a.accountType === 'checking').reduce((s, a) => s + (a.balance || 0), 0);
-  let savingsBalance = accounts.filter(a => a.accountType !== 'checking').reduce((s, a) => s + (a.balance || 0), 0);
+  let savingsBalance  = accounts.filter(a => a.accountType !== 'checking').reduce((s, a) => s + (a.balance || 0), 0);
   const rows = [];
   const labels = [];
   const checkingData = [];
-  const savingsData = [];
-  const totalData = [];
+  const savingsData  = [];
+  const totalData    = [];
+  const ccDebtData   = [];
+
+  let ccPayoffMonth = null; // label of first month all CC debt = 0
 
   for (let i = 0; i < months; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i + 1, 1);
     const label = `${MONTHS[d.getMonth()].slice(0,3)} ${d.getFullYear()}`;
     labels.push(label);
+
+    // Simulate CC payment for this month
+    let ccPaymentThisMonth = 0;
+    let totalCCDebtRemaining = 0;
+    ccCards.forEach(card => {
+      if (card.balance <= 0) return;
+      // Apply interest first
+      const monthlyRate = card.apr / 100 / 12;
+      card.balance += card.balance * monthlyRate;
+      // Apply payment (capped at balance)
+      const payment = Math.min(card.paymentAllocation, card.balance);
+      card.balance = Math.max(0, card.balance - payment);
+      ccPaymentThisMonth += payment;
+      totalCCDebtRemaining += card.balance;
+    });
+
+    if (ccPayoffMonth === null && totalCCDebtRemaining <= 0 && ccCards.some(c => c.paymentAllocation > 0)) {
+      ccPayoffMonth = label;
+    }
 
     const savingsContrib = (state.budget?.monthlySavingsTarget || 0) > 0
       ? state.budget.monthlySavingsTarget
@@ -1602,29 +1636,40 @@ function renderOutlook() {
     const spendBudget = (state.budget?.monthlySpendingTarget || 0) > 0
       ? state.budget.monthlySpendingTarget
       : avgSpending;
-    const netChange = inc - bills - spendBudget - savingsContrib;
-    checkingBalance += netChange;
-    savingsBalance += savingsContrib;
 
-    rows.push({ label, income: inc, bills, spending: spendBudget, savings: savingsContrib, checkingBalance, savingsBalance, total: checkingBalance + savingsBalance });
+    const totalOut = fixedBills + ccPaymentThisMonth + spendBudget + savingsContrib;
+    const netChange = inc - totalOut;
+    checkingBalance += netChange;
+    savingsBalance  += savingsContrib;
+
+    rows.push({
+      label, income: inc,
+      bills: fixedBills, ccPayment: ccPaymentThisMonth,
+      spending: spendBudget, savings: savingsContrib,
+      ccDebt: totalCCDebtRemaining,
+      checkingBalance, savingsBalance,
+      total: checkingBalance + savingsBalance
+    });
     checkingData.push(Math.max(0, checkingBalance));
     savingsData.push(Math.max(0, savingsBalance));
     totalData.push(Math.max(0, checkingBalance + savingsBalance));
+    ccDebtData.push(Math.max(0, totalCCDebtRemaining));
   }
 
   // Chart
   const ctx = document.getElementById('outlook-chart').getContext('2d');
   if (outlookChart) outlookChart.destroy();
+  const datasets = [
+    { label: 'Total Balance',  data: totalData,    borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.08)', fill: true, tension: 0.4, pointRadius: 3, pointBackgroundColor: '#6366f1', borderWidth: 2.5 },
+    { label: 'Checking',       data: checkingData, borderColor: '#10b981', backgroundColor: 'transparent', tension: 0.4, pointRadius: 3, pointBackgroundColor: '#10b981', borderWidth: 2 },
+    { label: 'Savings',        data: savingsData,  borderColor: '#7c3aed', backgroundColor: 'transparent', tension: 0.4, pointRadius: 3, pointBackgroundColor: '#7c3aed', borderWidth: 2 },
+  ];
+  if (ccCards.some(c => c.balance > 0 || c.paymentAllocation > 0)) {
+    datasets.push({ label: 'CC Debt Remaining', data: ccDebtData, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.06)', fill: true, tension: 0.4, pointRadius: 3, pointBackgroundColor: '#ef4444', borderWidth: 2, borderDash: [4,3] });
+  }
   outlookChart = new Chart(ctx, {
     type: 'line',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Total Balance', data: totalData, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.08)', fill: true, tension: 0.4, pointRadius: 3, pointBackgroundColor: '#6366f1', borderWidth: 2.5 },
-        { label: 'Checking', data: checkingData, borderColor: '#10b981', backgroundColor: 'transparent', tension: 0.4, pointRadius: 3, pointBackgroundColor: '#10b981', borderWidth: 2 },
-        { label: 'Savings', data: savingsData, borderColor: '#7c3aed', backgroundColor: 'transparent', tension: 0.4, pointRadius: 3, pointBackgroundColor: '#7c3aed', borderWidth: 2 }
-      ]
-    },
+    data: { labels, datasets },
     options: {
       animation: { duration: 1000, easing: 'easeInOutQuart' },
       plugins: { legend: { labels: { color: '#9ca3af', font: { size: 11, family: 'Inter' }, boxWidth: 12 } } },
@@ -1636,15 +1681,17 @@ function renderOutlook() {
   });
 
   // Table
+  const hasCCRows = ccCards.length > 0;
   const tableWrap = document.getElementById('outlook-table');
   tableWrap.innerHTML = `<table class="outlook-table">
     <thead><tr>
-      <th>Month</th><th>Income</th><th>Bills</th><th>Est. Spend</th><th>To Savings</th><th>Checking</th><th>Savings</th><th>Total</th>
+      <th>Month</th><th>Income</th><th>Fixed Bills</th>${hasCCRows ? '<th style="color:#ef4444">CC Payments</th>' : ''}<th>Est. Spend</th><th>To Savings</th><th>Checking</th><th>Savings</th><th>Total</th>
     </tr></thead>
     <tbody>${rows.map(r => `<tr>
       <td>${r.label}</td>
       <td>${fmt(r.income)}</td>
       <td style="color:#ef4444">${fmt(r.bills)}</td>
+      ${hasCCRows ? `<td style="color:#f472b6">${r.ccPayment > 0 ? fmt(r.ccPayment) : '<span style="color:#10b981;font-size:11px">✓ Paid off</span>'}</td>` : ''}
       <td style="color:#f59e0b">${fmt(r.spending)}</td>
       <td style="color:#a855f7">${fmt(r.savings)}</td>
       <td style="color:#2ec47a">${fmt(Math.max(0,r.checkingBalance))}</td>
@@ -1655,9 +1702,10 @@ function renderOutlook() {
 
   // Summary
   const lastRow = rows[rows.length - 1];
-  const firstRow = rows[0];
   const totalGrowth = lastRow.total - totalBalance();
   const totalSavingsAdded = rows.reduce((s, r) => s + r.savings, 0);
+  const totalCCPaid = rows.reduce((s, r) => s + r.ccPayment, 0);
+  const initialCCDebt = (state.creditCards || []).reduce((s, c) => s + (c.balance || 0), 0);
 
   document.getElementById('outlook-summary').innerHTML = `
     <div class="outlook-stat">
@@ -1676,6 +1724,20 @@ function renderOutlook() {
       <span class="outlook-stat-label">Total Saved Over Period</span>
       <span class="outlook-stat-value" style="color:#a855f7">${fmt(totalSavingsAdded)}</span>
     </div>
+    ${initialCCDebt > 0 ? `
+    <div class="outlook-stat">
+      <span class="outlook-stat-label">CC Payments Over Period</span>
+      <span class="outlook-stat-value" style="color:#f472b6">${fmt(totalCCPaid)}</span>
+    </div>
+    <div class="outlook-stat">
+      <span class="outlook-stat-label">Est. CC Debt After ${months} Months</span>
+      <span class="outlook-stat-value" style="color:${lastRow.ccDebt <= 0 ? '#10b981' : '#ef4444'}">${lastRow.ccDebt <= 0 ? '✓ Paid off' : fmt(lastRow.ccDebt)}</span>
+    </div>
+    ${ccPayoffMonth ? `
+    <div class="outlook-stat">
+      <span class="outlook-stat-label">Estimated CC Payoff Month</span>
+      <span class="outlook-stat-value" style="color:#10b981">🎉 ${ccPayoffMonth}</span>
+    </div>` : ''}` : ''}
     <div class="outlook-stat">
       <span class="outlook-stat-label">Net Change</span>
       <span class="outlook-stat-value" style="color:${totalGrowth >= 0 ? '#10b981' : '#ef4444'}">${totalGrowth >= 0 ? '+' : ''}${fmt(totalGrowth)}</span>
