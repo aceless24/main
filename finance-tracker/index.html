@@ -65,31 +65,33 @@
       <section id="section-dashboard" class="section active">
         <div class="home-hero">
           <div class="hero-primary-card">
-            <div class="hero-bg-anim"></div>
-            <div class="hero-content">
-              <div class="hero-label">Total Balance</div>
-              <div class="hero-value" id="dash-total-balance">$0.00</div>
-              <div class="hero-sub">All accounts combined</div>
+            <canvas id="hero-wave-canvas" class="hero-wave-canvas"></canvas>
+            <div class="hero-split">
+              <div class="hero-content">
+                <div class="hero-greeting" id="dash-greeting">Good morning</div>
+                <div class="hero-label">Total Balance</div>
+                <div class="hero-value" id="dash-total-balance">$0.00</div>
+                <div class="hero-chips">
+                  <div class="hero-chip hero-chip-green">
+                    <span>Available to Spend</span>
+                    <strong id="dash-available">$0.00</strong>
+                  </div>
+                  <div class="hero-chip hero-chip-orange">
+                    <span>Monthly Left</span>
+                    <strong id="dash-monthly-left">$0.00</strong>
+                  </div>
+                  <div class="hero-chip">
+                    <span>Weekly Budget</span>
+                    <strong id="dash-weekly">$0.00</strong>
+                  </div>
+                </div>
+                <div id="dash-balance-constraint-note" class="card-constraint-note" style="display:none"></div>
+              </div>
+              <div class="hero-chart-col">
+                <div class="hero-chart-label" id="home-chart-label">Spending vs Budget</div>
+                <canvas id="home-hero-chart"></canvas>
+              </div>
             </div>
-          </div>
-        </div>
-
-        <div class="cards-row">
-          <div class="card card-green">
-            <div class="card-label">Available to Spend</div>
-            <div class="card-value" id="dash-available">$0.00</div>
-            <div class="card-sub">After all bills &amp; obligations</div>
-            <div id="dash-balance-constraint-note" class="card-constraint-note" style="display:none"></div>
-          </div>
-          <div class="card card-orange">
-            <div class="card-label">Monthly Budget Left</div>
-            <div class="card-value" id="dash-monthly-left">$0.00</div>
-            <div class="card-sub">Remaining this month</div>
-          </div>
-          <div class="card card-purple">
-            <div class="card-label">Weekly Budget</div>
-            <div class="card-value" id="dash-weekly">$0.00</div>
-            <div class="card-sub">Per week to stay on track</div>
           </div>
         </div>
 
@@ -1189,11 +1191,83 @@
     </div>
   </div>
 
+      <!-- REPORTS -->
+      <section id="section-reports" class="section">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>&#128202; Generate Expense Report</h2>
+            <button class="btn btn-primary" onclick="generateReport()">Generate Report</button>
+          </div>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px">Filter your transactions by year, account, category, or date range to generate a detailed expense report.</p>
+          <div class="report-filters">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Year</label>
+                <select id="report-year" class="input"></select>
+              </div>
+              <div class="form-group">
+                <label>Account</label>
+                <select id="report-account" class="input">
+                  <option value="">All Accounts</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Category</label>
+                <select id="report-category" class="input">
+                  <option value="">All Categories</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>From Date</label>
+                <input type="date" id="report-date-from" class="input" />
+              </div>
+              <div class="form-group">
+                <label>To Date</label>
+                <input type="date" id="report-date-to" class="input" />
+              </div>
+              <div class="form-group">
+                <label>Search Description</label>
+                <input type="text" id="report-search" class="input" placeholder="Keyword search..." />
+              </div>
+            </div>
+            <div class="form-row" style="align-items:center">
+              <label class="checkbox-label">
+                <input type="checkbox" id="report-include-unexpected" checked />
+                Include Unexpected Expenses
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div id="report-results" style="display:none">
+          <div class="cards-row" id="report-summary-cards"></div>
+          <div class="two-col">
+            <div class="panel">
+              <div class="panel-header"><h2>By Category</h2></div>
+              <div id="report-category-breakdown"></div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><h2>Monthly Trend</h2></div>
+              <canvas id="report-trend-chart" height="220"></canvas>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Transactions</h2>
+              <button class="btn btn-sm btn-outline" onclick="exportReportCSV()">&#11015; Export CSV</button>
+            </div>
+            <div id="report-table" class="report-table-wrap"></div>
+          </div>
+        </div>
+      </section>
+
       <!-- SETTINGS -->
       <section id="section-settings" class="section">
-        <div class="panel" style="max-width:640px">
+        <div class="panel" style="max-width:720px">
           <div class="panel-header">
-            <h2>🎨 Appearance</h2>
+            <h2>&#127912; Appearance</h2>
             <span class="badge" id="settings-theme-current">Light</span>
           </div>
           <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px">Choose how TrackWise looks. "System" automatically matches your Windows dark/light mode setting.</p>
@@ -1231,8 +1305,40 @@
           </div>
         </div>
 
-        <div class="panel" style="max-width:640px">
-          <div class="panel-header"><h2>ℹ️ About</h2></div>
+        <div class="panel" style="max-width:720px">
+          <div class="panel-header">
+            <h2>&#127754; Background Animation Theme</h2>
+          </div>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Choose the animation style for the home page and the header strip on all tabs. Your choice is saved permanently.</p>
+          <div id="wave-theme-options" class="wave-theme-options"></div>
+        </div>
+
+        <div class="panel" style="max-width:720px">
+          <div class="panel-header">
+            <h2>&#128202; Home Dashboard Chart</h2>
+          </div>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Choose which chart appears in the home dashboard hero card.</p>
+          <div class="home-chart-options" id="home-chart-options">
+            <button class="chart-type-btn" data-chart="donut" onclick="setHomeChartType('donut')">
+              <span class="chart-type-icon">&#9711;</span>
+              <span>Spent vs Budget</span>
+              <small>Donut</small>
+            </button>
+            <button class="chart-type-btn" data-chart="bar" onclick="setHomeChartType('bar')">
+              <span class="chart-type-icon">&#9646;&#9646;&#9646;</span>
+              <span>By Category</span>
+              <small>Bar Chart</small>
+            </button>
+            <button class="chart-type-btn" data-chart="line" onclick="setHomeChartType('line')">
+              <span class="chart-type-icon">&#11835;</span>
+              <span>6-Month Trend</span>
+              <small>Line Chart</small>
+            </button>
+          </div>
+        </div>
+
+        <div class="panel" style="max-width:720px">
+          <div class="panel-header"><h2>&#8505;&#65039; About</h2></div>
           <div style="font-size:13px;color:var(--text-muted);line-height:1.8">
             <div><strong style="color:var(--text)">TrackWise</strong> — Personal desktop finance app</div>
             <div>Version 1.1.2</div>
@@ -1259,6 +1365,7 @@
         <li><a href="#" class="nav-link" data-section="outlook">&#128301; Outlook</a></li>
         <li><a href="#" class="nav-link" data-section="unexpected">&#9888; Unexpected</a></li>
         <li><a href="#" class="nav-link" data-section="goals">&#127919; Savings Goals</a></li>
+        <li><a href="#" class="nav-link" data-section="reports">&#128196; Reports</a></li>
         <li><a href="#" class="nav-link" data-section="settings">&#9881; Settings</a></li>
       </ul>
       <div class="nav-drawer-footer">v1.1.2</div>
