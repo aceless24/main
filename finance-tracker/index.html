@@ -18,6 +18,7 @@
         <li><a href="#" class="nav-link active" data-section="dashboard">&#9632; Dashboard</a></li>
         <li><a href="#" class="nav-link" data-section="accounts">&#9632; Accounts</a></li>
         <li><a href="#" class="nav-link" data-section="bills">&#9632; Bills</a></li>
+        <li><a href="#" class="nav-link" data-section="creditcards">&#9632; Credit Cards</a></li>
         <li><a href="#" class="nav-link" data-section="spending">&#9632; Spending</a></li>
         <li><a href="#" class="nav-link" data-section="budget">&#9632; Budget</a></li>
         <li><a href="#" class="nav-link" data-section="outlook">&#9632; Outlook</a></li>
@@ -216,44 +217,6 @@
           <div id="bill-history-table" class="outlook-table-wrap"></div>
         </div>
 
-        <!-- Credit Card Debt -->
-        <div class="panel">
-          <div class="panel-header">
-            <h2>💳 Credit Card Debt</h2>
-            <button class="btn btn-sm btn-primary" onclick="openAddCreditCard()">+ Add Card</button>
-          </div>
-          <div class="cc-summary-row">
-            <div class="cc-summary-stat">
-              <span class="cc-summary-label">Total Debt Balance</span>
-              <span class="cc-summary-value amount-red" id="cc-total-balance">$0.00</span>
-            </div>
-            <div class="cc-summary-stat">
-              <span class="cc-summary-label">Total Monthly Payments</span>
-              <span class="cc-summary-value amount-orange" id="cc-total-payments">$0.00</span>
-            </div>
-            <div class="cc-summary-stat">
-              <span class="cc-summary-label">Extra Monthly Allocation</span>
-              <span class="cc-summary-value amount-green" id="cc-extra-display">$0.00</span>
-            </div>
-            <div class="cc-summary-stat">
-              <span class="cc-summary-label">Est. Payoff Time</span>
-              <span class="cc-summary-value" id="cc-payoff-time">—</span>
-            </div>
-          </div>
-          <div id="credit-card-list" class="bills-list" style="margin-top:12px"></div>
-          <div class="cc-extra-alloc">
-            <label class="budget-target-label">Extra Monthly Debt Payoff Allocation</label>
-            <div class="budget-target-sub">Amount above minimum payments you want to put toward debt each month</div>
-            <div class="cc-extra-row">
-              <div class="budget-target-input-row" style="flex:1">
-                <span class="input-prefix">$</span>
-                <input type="number" id="cc-extra-allocation" class="input budget-target-input" placeholder="0.00" step="0.01" min="0" />
-              </div>
-              <button class="btn btn-primary" onclick="saveCCExtra()">Save</button>
-            </div>
-          </div>
-        </div>
-
         <!-- Savings Allocation -->
         <div class="panel">
           <div class="panel-header">
@@ -285,6 +248,57 @@
             </div>
           </div>
         </div>
+      </section>
+
+      <!-- CREDIT CARDS -->
+      <section id="section-creditcards" class="section">
+
+        <!-- Summary row -->
+        <div class="cc-summary-row" id="cc-summary-row">
+          <div class="cc-summary-stat">
+            <span class="cc-summary-label">Total Debt</span>
+            <span class="cc-summary-value amount-red" id="cc-total-balance">$0.00</span>
+          </div>
+          <div class="cc-summary-stat">
+            <span class="cc-summary-label">Total Credit Limit</span>
+            <span class="cc-summary-value" id="cc-total-limit">$0.00</span>
+          </div>
+          <div class="cc-summary-stat">
+            <span class="cc-summary-label">Total Monthly Payments</span>
+            <span class="cc-summary-value amount-orange" id="cc-total-payments">$0.00</span>
+          </div>
+          <div class="cc-summary-stat">
+            <span class="cc-summary-label">Overall Utilization</span>
+            <span class="cc-summary-value" id="cc-overall-util">0%</span>
+          </div>
+        </div>
+
+        <!-- Card list panel -->
+        <div class="panel">
+          <div class="panel-header">
+            <h2>💳 My Credit Cards</h2>
+            <button class="btn btn-sm btn-primary" onclick="openAddCreditCard()">+ Add Card</button>
+          </div>
+          <div id="cc-cards-list"></div>
+        </div>
+
+        <!-- Monthly CC Spending -->
+        <div class="panel">
+          <div class="panel-header">
+            <h2>📊 Monthly CC Spending</h2>
+            <span class="badge" id="cc-spending-badge">This Month</span>
+          </div>
+          <div id="cc-spending-list" class="transaction-list"></div>
+        </div>
+
+        <!-- Payment Tracker -->
+        <div class="panel cc-payment-tracker">
+          <div class="panel-header">
+            <h2>💸 Payment Tracker</h2>
+          </div>
+          <div id="cc-payment-tracker-list"></div>
+        </div>
+
       </section>
 
       <!-- SPENDING -->
@@ -588,9 +602,41 @@
       </div>
       <div class="modal-body">
         <input type="hidden" id="cc-edit-id" />
+        <div class="form-row">
+          <div class="form-group">
+            <label>Card Network</label>
+            <select id="cc-network" class="input">
+              <option value="Visa">Visa</option>
+              <option value="Mastercard">Mastercard</option>
+              <option value="Amex">Amex</option>
+              <option value="Discover">Discover</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Card Issuer</label>
+            <select id="cc-issuer" class="input" onchange="toggleCustomIssuer()">
+              <option value="USAA">USAA</option>
+              <option value="Capital One">Capital One</option>
+              <option value="Chase">Chase</option>
+              <option value="Citi">Citi</option>
+              <option value="Bank of America">Bank of America</option>
+              <option value="Wells Fargo">Wells Fargo</option>
+              <option value="Discover">Discover</option>
+              <option value="American Express">American Express</option>
+              <option value="Synchrony">Synchrony</option>
+              <option value="Barclays">Barclays</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" id="cc-custom-issuer-group" style="display:none">
+          <label>Custom Issuer Name</label>
+          <input type="text" id="cc-custom-issuer" class="input" placeholder="Enter issuer name" />
+        </div>
         <div class="form-group">
-          <label>Card Name</label>
-          <input type="text" id="cc-name" class="input" placeholder="e.g. Chase Sapphire, Capital One" />
+          <label>Card Name / Nickname</label>
+          <input type="text" id="cc-name" class="input" placeholder="e.g. Chase Sapphire, Capital One Venture" />
         </div>
         <div class="form-row">
           <div class="form-group">
@@ -600,6 +646,16 @@
           <div class="form-group">
             <label>Credit Limit ($)</label>
             <input type="number" id="cc-limit" class="input" placeholder="0.00" step="0.01" min="0" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Statement Balance ($)</label>
+            <input type="number" id="cc-statement-balance" class="input" placeholder="0.00" step="0.01" min="0" />
+          </div>
+          <div class="form-group">
+            <label>Payment Allocation ($)</label>
+            <input type="number" id="cc-payment-allocation" class="input" placeholder="0.00" step="0.01" min="0" />
           </div>
         </div>
         <div class="form-row">
@@ -722,6 +778,7 @@
             <select id="tx-account" class="input">
               <option value="checking">Checking</option>
               <option value="savings">Savings</option>
+              <option value="credit">Credit Card</option>
             </select>
           </div>
         </div>

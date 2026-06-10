@@ -719,6 +719,103 @@ body {
   .budget-targets-grid { grid-template-columns: 1fr; }
 }
 
+/* ─── Credit Cards Section ─────────────────────────────────────── */
+.cc-summary-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.cc-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+}
+
+.cc-card:last-child { margin-bottom: 0; }
+
+.cc-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.cc-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cc-network-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cc-network-visa    { background: rgba(79,142,247,0.18); color: #4f8ef7; }
+.cc-network-mastercard { background: rgba(239,68,68,0.18); color: #ef4444; }
+.cc-network-amex    { background: rgba(46,196,122,0.18); color: #2ec47a; }
+.cc-network-discover { background: rgba(245,158,11,0.18); color: #f59e0b; }
+.cc-network-other   { background: rgba(122,128,153,0.18); color: #7a8099; }
+
+.cc-card-name { font-size: 15px; font-weight: 600; }
+.cc-card-issuer { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+.cc-card-actions { display: flex; align-items: center; gap: 6px; }
+.cc-card-actions button {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: 13px; padding: 4px 7px;
+  border-radius: 4px;
+}
+.cc-card-actions button:hover { color: var(--text); background: var(--bg2); }
+.cc-card-actions .btn-tx { color: var(--blue); }
+
+.cc-card-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px 14px;
+  margin-bottom: 14px;
+}
+
+.cc-card-field { display: flex; flex-direction: column; gap: 2px; }
+.cc-card-field-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+.cc-card-field-value { font-size: 14px; font-weight: 600; }
+
+.cc-util-bar-wrap { margin-top: 10px; }
+.cc-util-bar-label {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: var(--text-muted); margin-bottom: 4px;
+}
+
+/* Payment tracker */
+.cc-payment-tracker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cc-payment-tracker-row:last-child { border-bottom: none; }
+
+.cc-payment-tracker-name { font-weight: 600; flex: 1; min-width: 140px; }
+.cc-payment-tracker-stats { display: flex; gap: 20px; flex-wrap: wrap; }
+.cc-payment-tracker-stat { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.cc-payment-tracker-stat span { font-size: 10px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.4px; }
+.cc-payment-tracker-stat strong { font-size: 14px; }
+.cc-payment-ok { color: var(--green); }
+.cc-payment-warn { color: var(--red); }
+
 /* ─── Scrollbar ────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }

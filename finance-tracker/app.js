@@ -160,6 +160,7 @@ function navigate(section) {
     dashboard: 'Dashboard',
     accounts: 'Accounts',
     bills: 'Bills',
+    creditcards: 'Credit Cards',
     spending: 'Spending',
     budget: 'Budget',
     outlook: 'Outlook',
@@ -174,6 +175,7 @@ function renderSection(section) {
   if (section === 'dashboard') renderDashboard();
   if (section === 'accounts') renderAccounts();
   if (section === 'bills') renderBills();
+  if (section === 'creditcards') renderCreditCards();
   if (section === 'spending') renderSpending();
   if (section === 'budget') renderBudget();
   if (section === 'outlook') renderOutlook();
@@ -427,6 +429,18 @@ function renderBills() {
 
   document.getElementById('essential-total-footer').textContent = fmt(totalEssential());
   document.getElementById('subscription-total-footer').textContent = fmt(totalSubscriptions());
+
+  renderSavingsAlloc();
+}
+
+function renderSavingsAlloc() {
+  const savingsAlloc = state.savingsAllocation || 0;
+  const el = document.getElementById('savings-alloc-input');
+  if (!el) return;
+  el.value = savingsAlloc || '';
+  document.getElementById('savings-alloc-balance').textContent = fmt(state.accounts.savings);
+  document.getElementById('savings-alloc-projected').textContent = fmt(state.accounts.savings + savingsAlloc);
+  document.getElementById('savings-alloc-remaining').textContent = fmt(Math.max(0, discretionaryBudget()));
 }
 
 function renderBillHistory() {
@@ -588,60 +602,6 @@ function checkNewMonth() {
   }
   state.lastSeenMonth = key;
   saveState();
-}
-
-  // Credit cards
-  const cards = state.creditCards || [];
-  const ccList = document.getElementById('credit-card-list');
-  ccList.innerHTML = cards.length ? cards.map(c => {
-    const util = c.limit > 0 ? Math.min(100, (c.balance / c.limit) * 100) : 0;
-    const utilColor = util > 75 ? '#ef4444' : util > 50 ? '#f59e0b' : '#2ec47a';
-    return `
-      <div class="bill-item" style="flex-direction:column;align-items:stretch;gap:8px">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div class="bill-item-left">
-            <span class="bill-name">💳 ${c.name}</span>
-            <span class="bill-meta">APR ${c.apr}% &middot; Due day ${c.dueDay || 'N/A'} &middot; Min payment ${fmt(c.minPayment)}</span>
-          </div>
-          <div class="bill-item-right">
-            <span class="bill-amount">${fmt(c.balance)}</span>
-            <div class="bill-actions">
-              <button onclick="editCreditCard('${c.id}')" title="Edit">&#9998;</button>
-              <button onclick="deleteCreditCard('${c.id}')" title="Delete">&#10005;</button>
-            </div>
-          </div>
-        </div>
-        <div>
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:#7a8099;margin-bottom:3px">
-            <span>Utilization</span><span style="color:${utilColor}">${util.toFixed(0)}% of ${fmt(c.limit)}</span>
-          </div>
-          <div class="budget-bar-track"><div class="budget-bar-fill" style="width:${util}%;background:${utilColor}"></div></div>
-        </div>
-      </div>`;
-  }).join('') : '<div class="empty-state">No credit cards added yet.</div>';
-
-  document.getElementById('cc-total-balance').textContent = fmt(totalCCDebt());
-  document.getElementById('cc-total-payments').textContent = fmt(totalCCMinPayments());
-  document.getElementById('cc-extra-display').textContent = fmt(state.ccExtraAllocation || 0);
-  document.getElementById('cc-extra-allocation').value = state.ccExtraAllocation || '';
-
-  // Estimate payoff time (simplified: total balance / total monthly payment)
-  const totalPayment = totalCCMonthlyCommitment();
-  if (totalCCDebt() > 0 && totalPayment > 0) {
-    const months = Math.ceil(totalCCDebt() / totalPayment);
-    const yrs = Math.floor(months / 12);
-    const mos = months % 12;
-    document.getElementById('cc-payoff-time').textContent = yrs > 0 ? `~${yrs}y ${mos}m` : `~${mos} months`;
-  } else {
-    document.getElementById('cc-payoff-time').textContent = totalCCDebt() === 0 ? '🎉 Paid off!' : '—';
-  }
-
-  // Savings allocation panel
-  const savingsAlloc = state.savingsAllocation || 0;
-  document.getElementById('savings-alloc-input').value = savingsAlloc || '';
-  document.getElementById('savings-alloc-balance').textContent = fmt(state.accounts.savings);
-  document.getElementById('savings-alloc-projected').textContent = fmt(state.accounts.savings + savingsAlloc);
-  document.getElementById('savings-alloc-remaining').textContent = fmt(Math.max(0, discretionaryBudget()));
 }
 
 /* ─── Spending ──────────────────────────────────────────────────── */
@@ -1358,13 +1318,163 @@ function renderUnexpected() {
   });
 }
 
+/* ─── Credit Cards ──────────────────────────────────────────────── */
+function renderCreditCards() {
+  const cards = state.creditCards || [];
+  const key = currentMonthKey();
+
+  // Summary row
+  const totalDebt = cards.reduce((s, c) => s + (c.balance || 0), 0);
+  const totalLimit = cards.reduce((s, c) => s + (c.limit || 0), 0);
+  const totalPayments = cards.reduce((s, c) => s + (c.paymentAllocation || c.minPayment || 0), 0);
+  const util = totalLimit > 0 ? ((totalDebt / totalLimit) * 100).toFixed(1) : 0;
+
+  document.getElementById('cc-total-balance').textContent = fmt(totalDebt);
+  document.getElementById('cc-total-limit').textContent = fmt(totalLimit);
+  document.getElementById('cc-total-payments').textContent = fmt(totalPayments);
+  const utilEl = document.getElementById('cc-overall-util');
+  utilEl.textContent = util + '%';
+  utilEl.className = 'cc-summary-value' + (util > 30 ? ' amount-orange' : util > 75 ? ' amount-red' : ' amount-green');
+
+  // Cards list
+  const listEl = document.getElementById('cc-cards-list');
+  if (cards.length === 0) {
+    listEl.innerHTML = '<div class="empty-state">No credit cards added. Click "+ Add Card" to get started.</div>';
+  } else {
+    listEl.innerHTML = cards.map(c => {
+      const network = c.network || 'Other';
+      const netClass = 'cc-network-' + network.toLowerCase().replace(' ', '');
+      const issuerDisplay = c.issuer === 'Other' ? (c.customIssuer || 'Other') : (c.issuer || '—');
+      const cardUtil = c.limit > 0 ? ((c.balance / c.limit) * 100).toFixed(1) : 0;
+      const utilColor = cardUtil > 75 ? '#ef4444' : cardUtil > 30 ? '#f59e0b' : '#2ec47a';
+      return `<div class="cc-card">
+        <div class="cc-card-header">
+          <div class="cc-card-title">
+            <span class="cc-network-badge ${netClass}">${network}</span>
+            <div>
+              <div class="cc-card-name">${c.name}</div>
+              <div class="cc-card-issuer">${issuerDisplay}</div>
+            </div>
+          </div>
+          <div class="cc-card-actions">
+            <button class="btn-tx" onclick="viewCCTransactions('${c.id}')" title="View Transactions">&#128203; Transactions</button>
+            <button onclick="editCreditCard('${c.id}')" title="Edit">&#9998; Edit</button>
+            <button onclick="deleteCreditCard('${c.id}')" title="Delete">&#10005; Delete</button>
+          </div>
+        </div>
+        <div class="cc-card-body">
+          <div class="cc-card-field">
+            <span class="cc-card-field-label">Current Balance</span>
+            <span class="cc-card-field-value amount-red">${fmt(c.balance || 0)}</span>
+          </div>
+          <div class="cc-card-field">
+            <span class="cc-card-field-label">Credit Limit</span>
+            <span class="cc-card-field-value">${fmt(c.limit || 0)}</span>
+          </div>
+          <div class="cc-card-field">
+            <span class="cc-card-field-label">APR</span>
+            <span class="cc-card-field-value">${c.apr || 0}%</span>
+          </div>
+          <div class="cc-card-field">
+            <span class="cc-card-field-label">Min Payment</span>
+            <span class="cc-card-field-value amount-orange">${fmt(c.minPayment || 0)}</span>
+          </div>
+          <div class="cc-card-field">
+            <span class="cc-card-field-label">Statement Balance</span>
+            <span class="cc-card-field-value">${fmt(c.statementBalance || 0)}</span>
+          </div>
+          <div class="cc-card-field">
+            <span class="cc-card-field-label">Payment Allocation</span>
+            <span class="cc-card-field-value" style="color:#4f8ef7">${fmt(c.paymentAllocation || 0)}</span>
+          </div>
+          <div class="cc-card-field">
+            <span class="cc-card-field-label">Due Day</span>
+            <span class="cc-card-field-value">${c.dueDay ? 'Day ' + c.dueDay : '—'}</span>
+          </div>
+        </div>
+        <div class="cc-util-bar-wrap">
+          <div class="cc-util-bar-label">
+            <span>Utilization</span>
+            <span style="color:${utilColor}">${cardUtil}%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" style="width:${Math.min(100, cardUtil)}%;background:${utilColor}"></div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Monthly CC Spending
+  const creditTxs = state.transactions.filter(t => t.account === 'credit' && t.date.startsWith(key));
+  const spendEl = document.getElementById('cc-spending-list');
+  spendEl.innerHTML = creditTxs.length
+    ? creditTxs.sort((a, b) => new Date(b.date) - new Date(a.date)).map(tx => txHTML(tx)).join('')
+    : '<div class="empty-state">No credit card transactions this month.</div>';
+
+  // Payment Tracker
+  const trackerEl = document.getElementById('cc-payment-tracker-list');
+  if (cards.length === 0) {
+    trackerEl.innerHTML = '<div class="empty-state">No credit cards to track.</div>';
+  } else {
+    trackerEl.innerHTML = cards.map(c => {
+      const stmtBal = c.statementBalance || 0;
+      const alloc = c.paymentAllocation || 0;
+      const minPay = c.minPayment || 0;
+      const meetsMin = alloc >= minPay;
+      const statusClass = meetsMin ? 'cc-payment-ok' : 'cc-payment-warn';
+      const statusText = alloc === 0 ? 'No allocation set' : meetsMin ? 'Paying min or more' : 'Below minimum!';
+      return `<div class="cc-payment-tracker-row">
+        <div class="cc-payment-tracker-name">${c.name}</div>
+        <div class="cc-payment-tracker-stats">
+          <div class="cc-payment-tracker-stat">
+            <span>Statement Bal</span>
+            <strong>${fmt(stmtBal)}</strong>
+          </div>
+          <div class="cc-payment-tracker-stat">
+            <span>Want to Pay</span>
+            <strong style="color:#4f8ef7">${fmt(alloc)}</strong>
+          </div>
+          <div class="cc-payment-tracker-stat">
+            <span>Minimum Due</span>
+            <strong class="amount-orange">${fmt(minPay)}</strong>
+          </div>
+          <div class="cc-payment-tracker-stat">
+            <span>Status</span>
+            <strong class="${statusClass}">${statusText}</strong>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+
+function viewCCTransactions(cardId) {
+  // Navigate to spending and filter by credit
+  navigate('spending');
+  const accountSel = document.getElementById('filter-category');
+  // For now show all credit transactions
+  renderSpending();
+}
+
+function toggleCustomIssuer() {
+  const issuer = document.getElementById('cc-issuer').value;
+  document.getElementById('cc-custom-issuer-group').style.display = issuer === 'Other' ? 'block' : 'none';
+}
+
 // Credit Card modals
 function openAddCreditCard() {
   document.getElementById('modal-cc-title').textContent = 'Add Credit Card';
   document.getElementById('cc-edit-id').value = '';
+  document.getElementById('cc-network').value = 'Visa';
+  document.getElementById('cc-issuer').value = 'USAA';
+  document.getElementById('cc-custom-issuer-group').style.display = 'none';
+  document.getElementById('cc-custom-issuer').value = '';
   document.getElementById('cc-name').value = '';
   document.getElementById('cc-balance').value = '';
   document.getElementById('cc-limit').value = '';
+  document.getElementById('cc-statement-balance').value = '';
+  document.getElementById('cc-payment-allocation').value = '';
   document.getElementById('cc-apr').value = '';
   document.getElementById('cc-min-payment').value = '';
   document.getElementById('cc-due-day').value = '';
@@ -1376,9 +1486,15 @@ function editCreditCard(id) {
   if (!c) return;
   document.getElementById('modal-cc-title').textContent = 'Edit Credit Card';
   document.getElementById('cc-edit-id').value = c.id;
+  document.getElementById('cc-network').value = c.network || 'Visa';
+  document.getElementById('cc-issuer').value = c.issuer || 'USAA';
+  toggleCustomIssuer();
+  document.getElementById('cc-custom-issuer').value = c.customIssuer || '';
   document.getElementById('cc-name').value = c.name;
   document.getElementById('cc-balance').value = c.balance;
   document.getElementById('cc-limit').value = c.limit;
+  document.getElementById('cc-statement-balance').value = c.statementBalance || '';
+  document.getElementById('cc-payment-allocation').value = c.paymentAllocation || '';
   document.getElementById('cc-apr').value = c.apr;
   document.getElementById('cc-min-payment').value = c.minPayment;
   document.getElementById('cc-due-day').value = c.dueDay || '';
@@ -1387,8 +1503,13 @@ function editCreditCard(id) {
 
 function saveCreditCard() {
   const name = document.getElementById('cc-name').value.trim();
+  const network = document.getElementById('cc-network').value;
+  const issuer = document.getElementById('cc-issuer').value;
+  const customIssuer = document.getElementById('cc-custom-issuer').value.trim();
   const balance = parseFloat(document.getElementById('cc-balance').value) || 0;
   const limit = parseFloat(document.getElementById('cc-limit').value) || 0;
+  const statementBalance = parseFloat(document.getElementById('cc-statement-balance').value) || 0;
+  const paymentAllocation = parseFloat(document.getElementById('cc-payment-allocation').value) || 0;
   const apr = parseFloat(document.getElementById('cc-apr').value) || 0;
   const minPayment = parseFloat(document.getElementById('cc-min-payment').value) || 0;
   const dueDay = parseInt(document.getElementById('cc-due-day').value) || null;
@@ -1397,11 +1518,13 @@ function saveCreditCard() {
   if (!name) return alert('Please enter a card name.');
   if (!state.creditCards) state.creditCards = [];
 
+  const cardData = { name, network, issuer, customIssuer, balance, limit, statementBalance, paymentAllocation, apr, minPayment, dueDay };
+
   if (editId) {
     const idx = state.creditCards.findIndex(c => c.id === editId);
-    if (idx >= 0) state.creditCards[idx] = { ...state.creditCards[idx], name, balance, limit, apr, minPayment, dueDay };
+    if (idx >= 0) state.creditCards[idx] = { ...state.creditCards[idx], ...cardData };
   } else {
-    state.creditCards.push({ id: uid(), name, balance, limit, apr, minPayment, dueDay });
+    state.creditCards.push({ id: uid(), ...cardData });
   }
   saveState();
   closeModal('modal-credit-card');
@@ -1411,13 +1534,6 @@ function saveCreditCard() {
 function deleteCreditCard(id) {
   if (!confirm('Remove this credit card?')) return;
   state.creditCards = (state.creditCards || []).filter(c => c.id !== id);
-  saveState();
-  renderSection(currentSection());
-}
-
-function saveCCExtra() {
-  const val = parseFloat(document.getElementById('cc-extra-allocation').value) || 0;
-  state.ccExtraAllocation = val;
   saveState();
   renderSection(currentSection());
 }
