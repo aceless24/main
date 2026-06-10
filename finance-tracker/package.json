@@ -1,6 +1,6 @@
 {
   "name": "finance-tracker",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Personal Finance Tracker desktop app",
   "main": "electron/main.js",
   "scripts": {
@@ -10,7 +10,7 @@
   },
   "build": {
     "appId": "com.financetracker.app",
-    "productName": "Finance Tracker",
+    "productName": "TrackWise",
     "directories": {
       "output": "dist"
     },
@@ -38,7 +38,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Finance Tracker"
+      "shortcutName": "TrackWise"
     }
   },
   "devDependencies": {
