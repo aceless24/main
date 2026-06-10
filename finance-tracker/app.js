@@ -242,81 +242,128 @@ function totalSavingsBalance() {
 }
 
 /* ─── Wave Animation ───────────────────────────────────────────── */
+// Five themes matching the reference images — saturated glowing ribbons on dark bg
 const WAVE_THEMES = [
-  { name: 'aurora',  colors: ['#7c3aed','#a855f7','#6366f1','#8b5cf6'], bg: ['#0e0528','#1e0a3c','#2d1b69'] },
-  { name: 'ocean',   colors: ['#06b6d4','#22d3ee','#0891b2','#67e8f9'], bg: ['#042030','#063548','#064e6e'] },
-  { name: 'forest',  colors: ['#10b981','#34d399','#059669','#6ee7b7'], bg: ['#021a10','#032e1a','#044d2c'] },
-  { name: 'sunset',  colors: ['#f97316','#fb923c','#ef4444','#f59e0b'], bg: ['#1a0a02','#2d1005','#3d1a08'] },
-  { name: 'nebula',  colors: ['#ec4899','#a855f7','#8b5cf6','#f472b6'], bg: ['#1a0518','#2d0a2e','#3d1045'] },
+  { name: 'aurora',  bg: '#06001a', colors: ['#9d4edd','#c77dff','#7b2ff7','#e0aaff'] },
+  { name: 'ocean',   bg: '#00060f', colors: ['#00b4d8','#48cae4','#0077b6','#90e0ef'] },
+  { name: 'nebula',  bg: '#0d0014', colors: ['#f72585','#b5179e','#7209b7','#480ca8'] },
+  { name: 'cyber',   bg: '#000a0f', colors: ['#00f5d4','#00bbf9','#9b5de5','#f15bb5'] },
+  { name: 'plasma',  bg: '#00010f', colors: ['#4361ee','#4cc9f0','#3f37c9','#4895ef'] },
 ];
 
 let activeWaveTheme = null;
-let heroWaveAnim = null;
-let headerWaveAnim = null;
+let heroWaveAnim    = null;
+let headerWaveAnim  = null;
 
 function pickWaveTheme() {
   activeWaveTheme = WAVE_THEMES[Math.floor(Math.random() * WAVE_THEMES.length)];
   return activeWaveTheme;
 }
 
-function startWaveCanvas(canvasId, theme, height) {
+// Particle-ribbon wave — looks like the flowing glowing light-stream images
+function startWaveCanvas(canvasId, theme, _height) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return null;
   const ctx = canvas.getContext('2d');
-  canvas.width  = canvas.offsetWidth  || canvas.parentElement.offsetWidth  || 800;
-  canvas.height = height || canvas.offsetHeight || 180;
 
-  const waves = [
-    { speed: 0.0008, amp: canvas.height * 0.18, y: 0.35, phase: 0,           freq: 0.009 },
-    { speed: 0.0013, amp: canvas.height * 0.12, y: 0.55, phase: Math.PI,     freq: 0.011 },
-    { speed: 0.0006, amp: canvas.height * 0.22, y: 0.70, phase: Math.PI/2,   freq: 0.007 },
-  ];
-  let t = 0;
-  let raf = null;
+  const parent = canvas.parentElement;
+  const w = canvas.width  = (parent?.offsetWidth)  || 800;
+  const h = canvas.height = (parent?.offsetHeight) || (canvasId === 'hero-wave-canvas' ? 220 : 90);
+
+  const isHero = canvasId === 'hero-wave-canvas';
+  const numStreams        = isHero ? 4 : 3;
+  const particlesPerStream = isHero ? 260 : 140;
+
+  // Build streams — each is a ribbon of particles flowing along a sine path
+  const streams = Array.from({ length: numStreams }, (_, i) => {
+    const color  = theme.colors[i % theme.colors.length];
+    const color2 = theme.colors[(i + 1) % theme.colors.length];
+    const spreadY = h * (isHero ? 0.04 : 0.06); // perpendicular scatter around wave center
+
+    const particles = Array.from({ length: particlesPerStream }, (__, j) => ({
+      t:      j / particlesPerStream,          // position 0..1 along the stream
+      perp:   (Math.random() - 0.5) * spreadY, // ± scatter perpendicular to the path
+      size:   Math.random() * (isHero ? 1.8 : 1.2) + 0.4,
+      alpha:  Math.random() * 0.55 + 0.35,
+      drift:  0.00025 + Math.random() * 0.00025,
+    }));
+
+    return {
+      particles,
+      baseY: h * (0.18 + (i / Math.max(numStreams - 1, 1)) * 0.64),
+      amp:   h * (0.08 + (i % 2) * 0.05),
+      freq:  0.0055 + i * 0.0025,
+      phase: i * (Math.PI * 2 / numStreams),
+      speed: 0.00028 + i * 0.0001,
+      color, color2,
+    };
+  });
+
+  // Paint the opaque background once so the canvas is never transparent
+  ctx.fillStyle = theme.bg;
+  ctx.fillRect(0, 0, w, h);
+
+  let tick    = 0;
+  let raf     = null;
   let stopped = false;
 
-  function draw() {
+  function frame() {
     if (stopped) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    t++;
+    tick++;
 
-    waves.forEach((w, i) => {
-      const color = theme.colors[i % theme.colors.length];
-      ctx.save();
-      ctx.beginPath();
-      const baseY = canvas.height * w.y;
-      for (let x = 0; x <= canvas.width; x += 2) {
-        const y = baseY + Math.sin(x * w.freq + t * w.speed * 80 + w.phase) * w.amp
-                        + Math.sin(x * w.freq * 2.3 + t * w.speed * 50 + w.phase * 0.5) * w.amp * 0.3;
-        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      }
-      ctx.strokeStyle = color + 'cc';
-      ctx.lineWidth = canvasId === 'hero-wave-canvas' ? 1.8 : 1.2;
-      ctx.shadowBlur = canvasId === 'hero-wave-canvas' ? 12 : 6;
-      ctx.shadowColor = color;
-      ctx.stroke();
-      ctx.restore();
+    // Fade trail — slower fade = longer glow trails (matches the reference images)
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = `${theme.bg}22`; // ~13 % opacity overlay each frame
+    ctx.fillRect(0, 0, w, h);
 
-      // dots along wave
-      ctx.save();
-      for (let x = 15; x < canvas.width; x += (canvasId === 'hero-wave-canvas' ? 28 : 40)) {
-        const y = baseY + Math.sin(x * w.freq + t * w.speed * 80 + w.phase) * w.amp
-                        + Math.sin(x * w.freq * 2.3 + t * w.speed * 50 + w.phase * 0.5) * w.amp * 0.3;
+    // Additive blending makes overlapping particles bloom naturally
+    ctx.globalCompositeOperation = 'lighter';
+
+    streams.forEach(stream => {
+      stream.particles.forEach(p => {
+        // Advance particle along path
+        p.t += stream.speed + p.drift;
+        if (p.t >= 1) p.t -= 1;
+
+        const x = p.t * w;
+        // Two-harmonic path for organic S-curve look
+        const cy = stream.baseY
+          + Math.sin(p.t * w * stream.freq + tick * stream.speed * 55 + stream.phase) * stream.amp
+          + Math.sin(p.t * w * stream.freq * 2.1 - tick * stream.speed * 33 + stream.phase * 0.6) * stream.amp * 0.28;
+        const y = cy + p.perp;
+
+        // Soft outer glow (large radius, low opacity)
+        const haloR = p.size * (isHero ? 10 : 7);
+        const halo  = ctx.createRadialGradient(x, y, 0, x, y, haloR);
+        halo.addColorStop(0,   stream.color + '28');
+        halo.addColorStop(0.4, stream.color + '12');
+        halo.addColorStop(1,   'transparent');
+        ctx.globalAlpha = 1;
         ctx.beginPath();
-        ctx.arc(x, y, canvasId === 'hero-wave-canvas' ? 2.2 : 1.5, 0, Math.PI * 2);
-        ctx.fillStyle = theme.colors[(i + 1) % theme.colors.length] + 'ee';
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = theme.colors[(i + 1) % theme.colors.length];
+        ctx.arc(x, y, haloR, 0, Math.PI * 2);
+        ctx.fillStyle = halo;
         ctx.fill();
-        ctx.restore(); ctx.save();
-      }
-      ctx.restore();
+
+        // Bright inner core (tight radius, full brightness)
+        const coreR = p.size * (isHero ? 2.8 : 2.0);
+        const core  = ctx.createRadialGradient(x, y, 0, x, y, coreR);
+        core.addColorStop(0,   stream.color + 'ff');
+        core.addColorStop(0.5, stream.color2 + 'cc');
+        core.addColorStop(1,   'transparent');
+        ctx.globalAlpha = p.alpha;
+        ctx.beginPath();
+        ctx.arc(x, y, coreR, 0, Math.PI * 2);
+        ctx.fillStyle = core;
+        ctx.fill();
+      });
     });
 
-    raf = requestAnimationFrame(draw);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    raf = requestAnimationFrame(frame);
   }
 
-  draw();
+  frame();
   return { stop: () => { stopped = true; if (raf) cancelAnimationFrame(raf); } };
 }
 
@@ -2774,18 +2821,9 @@ function init() {
       setTimeout(() => {
         if (loadingScreen) loadingScreen.classList.add('hidden');
         const theme = pickWaveTheme();
-        // Apply theme bg colors to hero card
-        const heroCard = document.querySelector('.hero-primary-card');
-        if (heroCard) {
-          heroCard.style.background = `linear-gradient(135deg, ${theme.bg[0]} 0%, ${theme.bg[1]} 50%, ${theme.bg[2]} 100%)`;
-        }
-        heroWaveAnim = startWaveCanvas('hero-wave-canvas', theme, 0);
-        headerWaveAnim = startWaveCanvas('header-wave-canvas', theme, 0);
-        // Also apply header bg
-        const headerWave = document.getElementById('section-wave-header');
-        if (headerWave) {
-          headerWave.style.background = `linear-gradient(135deg, ${theme.bg[0]} 0%, ${theme.bg[1]} 50%, ${theme.bg[2]} 100%)`;
-        }
+        // Canvas draws its own dark background — no CSS gradient needed
+        heroWaveAnim   = startWaveCanvas('hero-wave-canvas',    theme);
+        headerWaveAnim = startWaveCanvas('header-wave-canvas',  theme);
       }, 400);
     }
     if (loadingBar) loadingBar.style.width = progress + '%';
