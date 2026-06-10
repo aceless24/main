@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Finance Tracker</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar Nav -->
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <span class="logo">&#9654; FinanceTracker</span>
+      </div>
+      <ul class="nav-links">
+        <li><a href="#" class="nav-link active" data-section="dashboard">&#9632; Dashboard</a></li>
+        <li><a href="#" class="nav-link" data-section="accounts">&#9632; Accounts</a></li>
+        <li><a href="#" class="nav-link" data-section="bills">&#9632; Bills</a></li>
+        <li><a href="#" class="nav-link" data-section="spending">&#9632; Spending</a></li>
+        <li><a href="#" class="nav-link" data-section="budget">&#9632; Budget</a></li>
+        <li><a href="#" class="nav-link" data-section="outlook">&#9632; Outlook</a></li>
+        <li><a href="#" class="nav-link" data-section="goals">&#9632; Savings Goals</a></li>
+      </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="top-bar">
+        <h1 id="section-title">Dashboard</h1>
+        <div class="top-bar-right">
+          <span id="current-month-label"></span>
+          <button class="btn btn-primary" id="add-transaction-btn">+ Add Transaction</button>
+        </div>
+      </header>
+
+      <!-- DASHBOARD -->
+      <section id="section-dashboard" class="section active">
+        <div class="cards-row">
+          <div class="card card-blue">
+            <div class="card-label">Total Balance</div>
+            <div class="card-value" id="dash-total-balance">$0.00</div>
+            <div class="card-sub">Checking + Savings</div>
+          </div>
+          <div class="card card-green">
+            <div class="card-label">Available to Spend</div>
+            <div class="card-value" id="dash-available">$0.00</div>
+            <div class="card-sub">After all bills</div>
+          </div>
+          <div class="card card-orange">
+            <div class="card-label">Monthly Budget Left</div>
+            <div class="card-value" id="dash-monthly-left">$0.00</div>
+            <div class="card-sub">Remaining this month</div>
+          </div>
+          <div class="card card-purple">
+            <div class="card-label">Weekly Budget</div>
+            <div class="card-value" id="dash-weekly">$0.00</div>
+            <div class="card-sub">Per week to stay on track</div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Bills Overview</h2>
+              <span class="badge" id="dash-bills-total">$0.00/mo</span>
+            </div>
+            <div class="bills-summary">
+              <div class="bills-row">
+                <span>Essential Bills</span>
+                <span class="amount-red" id="dash-essential-total">$0.00</span>
+              </div>
+              <div class="bills-row">
+                <span>Subscriptions</span>
+                <span class="amount-orange" id="dash-subscription-total">$0.00</span>
+              </div>
+              <div class="bills-divider"></div>
+              <div class="bills-row bills-total-row">
+                <span>Total Monthly Bills</span>
+                <span id="dash-bills-sum">$0.00</span>
+              </div>
+            </div>
+            <canvas id="bills-chart" height="160"></canvas>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h2>This Month's Spending</h2>
+              <span class="badge" id="dash-spent-badge">$0.00 spent</span>
+            </div>
+            <canvas id="spending-chart" height="200"></canvas>
+            <div class="spending-footer">
+              <div class="spending-stat">
+                <span>Spent</span>
+                <strong id="dash-spent">$0.00</strong>
+              </div>
+              <div class="spending-stat">
+                <span>Budgeted</span>
+                <strong id="dash-budgeted">$0.00</strong>
+              </div>
+              <div class="spending-stat">
+                <span>Remaining</span>
+                <strong id="dash-remaining" class="amount-green">$0.00</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Recent Transactions</h2>
+            <a href="#" class="link" data-section="spending">View all</a>
+          </div>
+          <div id="recent-transactions" class="transaction-list"></div>
+        </div>
+      </section>
+
+      <!-- ACCOUNTS -->
+      <section id="section-accounts" class="section">
+        <div class="cards-row">
+          <div class="card card-blue">
+            <div class="card-label">Checking Account</div>
+            <div class="card-value" id="checking-display">$0.00</div>
+            <button class="btn btn-sm btn-outline mt-8" onclick="openEditAccount('checking')">Edit</button>
+          </div>
+          <div class="card card-green">
+            <div class="card-label">Savings Account</div>
+            <div class="card-value" id="savings-display">$0.00</div>
+            <button class="btn btn-sm btn-outline mt-8" onclick="openEditAccount('savings')">Edit</button>
+          </div>
+          <div class="card card-purple">
+            <div class="card-label">Total Balance</div>
+            <div class="card-value" id="total-balance-display">$0.00</div>
+            <div class="card-sub">Combined</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Monthly Income</h2>
+            <button class="btn btn-sm btn-primary" onclick="openEditIncome()">Edit Income</button>
+          </div>
+          <div class="income-grid" id="income-display"></div>
+        </div>
+      </section>
+
+      <!-- BILLS -->
+      <section id="section-bills" class="section">
+        <div class="two-col">
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Essential Bills</h2>
+              <button class="btn btn-sm btn-primary" onclick="openAddBill('essential')">+ Add Bill</button>
+            </div>
+            <div id="essential-bills-list" class="bills-list"></div>
+            <div class="bills-list-footer">
+              <span>Total</span>
+              <strong id="essential-total-footer">$0.00</strong>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Subscriptions</h2>
+              <button class="btn btn-sm btn-primary" onclick="openAddBill('subscription')">+ Add Subscription</button>
+            </div>
+            <div id="subscription-bills-list" class="bills-list"></div>
+            <div class="bills-list-footer">
+              <span>Total</span>
+              <strong id="subscription-total-footer">$0.00</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SPENDING -->
+      <section id="section-spending" class="section">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Transaction Log</h2>
+            <div class="filters">
+              <select id="filter-month" class="select-sm" onchange="renderSpending()"></select>
+              <select id="filter-category" class="select-sm" onchange="renderSpending()">
+                <option value="">All Categories</option>
+              </select>
+              <button class="btn btn-sm btn-primary" id="add-transaction-btn2">+ Add</button>
+            </div>
+          </div>
+          <div id="spending-list" class="transaction-list"></div>
+        </div>
+
+        <div class="two-col mt-16">
+          <div class="panel">
+            <div class="panel-header"><h2>Spending by Category</h2></div>
+            <canvas id="category-chart" height="240"></canvas>
+          </div>
+          <div class="panel">
+            <div class="panel-header"><h2>Monthly Spending History</h2></div>
+            <canvas id="monthly-history-chart" height="240"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- BUDGET -->
+      <section id="section-budget" class="section">
+        <div class="cards-row">
+          <div class="card card-green">
+            <div class="card-label">Monthly Income</div>
+            <div class="card-value" id="budget-income">$0.00</div>
+          </div>
+          <div class="card card-red">
+            <div class="card-label">Total Bills</div>
+            <div class="card-value" id="budget-bills">$0.00</div>
+          </div>
+          <div class="card card-blue">
+            <div class="card-label">Discretionary Budget</div>
+            <div class="card-value" id="budget-discretionary">$0.00</div>
+            <div class="card-sub">Income minus bills</div>
+          </div>
+          <div class="card card-orange">
+            <div class="card-label">Weekly Allowance</div>
+            <div class="card-value" id="budget-weekly">$0.00</div>
+            <div class="card-sub">Per week</div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Budget Breakdown</h2>
+            </div>
+            <div id="budget-breakdown" class="budget-breakdown"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Spending vs Budget</h2>
+            </div>
+            <canvas id="budget-vs-spend-chart" height="280"></canvas>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Budget Progress This Month</h2>
+          </div>
+          <div id="budget-progress-list" class="budget-progress-list"></div>
+        </div>
+      </section>
+
+      <!-- OUTLOOK -->
+      <section id="section-outlook" class="section">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Financial Outlook</h2>
+            <div class="outlook-controls">
+              <label>Timeframe:</label>
+              <select id="outlook-months" class="select-sm" onchange="renderOutlook()">
+                <option value="6">6 Months</option>
+                <option value="12" selected>12 Months</option>
+              </select>
+              <label>Savings Rate:</label>
+              <select id="outlook-savings-rate" class="select-sm" onchange="renderOutlook()">
+                <option value="0">None (0%)</option>
+                <option value="0.05">5%</option>
+                <option value="0.10" selected>10%</option>
+                <option value="0.15">15%</option>
+                <option value="0.20">20%</option>
+                <option value="0.25">25%</option>
+              </select>
+            </div>
+          </div>
+          <canvas id="outlook-chart" height="280"></canvas>
+        </div>
+
+        <div class="two-col mt-16">
+          <div class="panel">
+            <div class="panel-header"><h2>Projected Month-by-Month</h2></div>
+            <div id="outlook-table" class="outlook-table-wrap"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-header"><h2>Projection Summary</h2></div>
+            <div id="outlook-summary" class="outlook-summary"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- GOALS -->
+      <section id="section-goals" class="section">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Savings Goals</h2>
+            <button class="btn btn-sm btn-primary" onclick="openAddGoal()">+ Add Goal</button>
+          </div>
+          <div id="goals-list" class="goals-list"></div>
+        </div>
+
+        <div class="panel mt-16">
+          <div class="panel-header"><h2>How Much to Save per Month</h2></div>
+          <div id="goals-plan" class="goals-plan"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODALS -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <!-- Add/Edit Transaction -->
+    <div id="modal-transaction" class="modal hidden">
+      <div class="modal-header">
+        <h3 id="modal-transaction-title">Add Transaction</h3>
+        <button class="modal-close" onclick="closeModal('modal-transaction')">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="tx-edit-id" />
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" id="tx-description" class="input" placeholder="e.g. Groceries" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Amount ($)</label>
+            <input type="number" id="tx-amount" class="input" placeholder="0.00" step="0.01" min="0" />
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="tx-date" class="input" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Category</label>
+            <select id="tx-category" class="input">
+              <option value="Food & Dining">Food & Dining</option>
+              <option value="Transportation">Transportation</option>
+              <option value="Shopping">Shopping</option>
+              <option value="Entertainment">Entertainment</option>
+              <option value="Health & Fitness">Health & Fitness</option>
+              <option value="Personal Care">Personal Care</option>
+              <option value="Education">Education</option>
+              <option value="Travel">Travel</option>
+              <option value="Gifts & Donations">Gifts & Donations</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Account</label>
+            <select id="tx-account" class="input">
+              <option value="checking">Checking</option>
+              <option value="savings">Savings</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Note (optional)</label>
+          <input type="text" id="tx-note" class="input" placeholder="Optional note" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-transaction')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveTransaction()">Save</button>
+      </div>
+    </div>
+
+    <!-- Add/Edit Bill -->
+    <div id="modal-bill" class="modal hidden">
+      <div class="modal-header">
+        <h3 id="modal-bill-title">Add Bill</h3>
+        <button class="modal-close" onclick="closeModal('modal-bill')">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="bill-edit-id" />
+        <input type="hidden" id="bill-type" />
+        <div class="form-group">
+          <label>Bill Name</label>
+          <input type="text" id="bill-name" class="input" placeholder="e.g. Rent" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Amount ($)</label>
+            <input type="number" id="bill-amount" class="input" placeholder="0.00" step="0.01" min="0" />
+          </div>
+          <div class="form-group">
+            <label>Due Day of Month</label>
+            <input type="number" id="bill-due-day" class="input" placeholder="1-31" min="1" max="31" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <select id="bill-category" class="input">
+            <option value="Housing">Housing</option>
+            <option value="Transportation">Transportation</option>
+            <option value="Utilities">Utilities</option>
+            <option value="Insurance">Insurance</option>
+            <option value="Phone">Phone</option>
+            <option value="Internet">Internet</option>
+            <option value="Streaming">Streaming</option>
+            <option value="Software">Software</option>
+            <option value="Gym">Gym</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-bill')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveBill()">Save</button>
+      </div>
+    </div>
+
+    <!-- Edit Account Balance -->
+    <div id="modal-account" class="modal hidden">
+      <div class="modal-header">
+        <h3 id="modal-account-title">Edit Account</h3>
+        <button class="modal-close" onclick="closeModal('modal-account')">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="account-type" />
+        <div class="form-group">
+          <label>Current Balance ($)</label>
+          <input type="number" id="account-balance" class="input" placeholder="0.00" step="0.01" min="0" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-account')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveAccount()">Save</button>
+      </div>
+    </div>
+
+    <!-- Edit Income -->
+    <div id="modal-income" class="modal hidden">
+      <div class="modal-header">
+        <h3>Edit Monthly Income</h3>
+        <button class="modal-close" onclick="closeModal('modal-income')">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Monthly Take-Home Income ($)</label>
+          <input type="number" id="income-amount" class="input" placeholder="0.00" step="0.01" min="0" />
+        </div>
+        <div class="form-group">
+          <label>Pay Frequency</label>
+          <select id="income-frequency" class="input">
+            <option value="monthly">Monthly</option>
+            <option value="biweekly">Bi-Weekly</option>
+            <option value="weekly">Weekly</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-income')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveIncome()">Save</button>
+      </div>
+    </div>
+
+    <!-- Add Goal -->
+    <div id="modal-goal" class="modal hidden">
+      <div class="modal-header">
+        <h3 id="modal-goal-title">Add Savings Goal</h3>
+        <button class="modal-close" onclick="closeModal('modal-goal')">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="goal-edit-id" />
+        <div class="form-group">
+          <label>Goal Name</label>
+          <input type="text" id="goal-name" class="input" placeholder="e.g. Emergency Fund" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Target Amount ($)</label>
+            <input type="number" id="goal-target" class="input" placeholder="0.00" step="0.01" min="0" />
+          </div>
+          <div class="form-group">
+            <label>Current Saved ($)</label>
+            <input type="number" id="goal-saved" class="input" placeholder="0.00" step="0.01" min="0" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Target Date</label>
+          <input type="date" id="goal-date" class="input" />
+        </div>
+        <div class="form-group">
+          <label>Account</label>
+          <select id="goal-account" class="input">
+            <option value="savings">Savings</option>
+            <option value="checking">Checking</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-goal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveGoal()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
