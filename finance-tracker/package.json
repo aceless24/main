@@ -1,0 +1,49 @@
+{
+  "name": "finance-tracker",
+  "version": "1.0.0",
+  "description": "Personal Finance Tracker desktop app",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win --x64",
+    "build:all": "electron-builder --win --mac --linux"
+  },
+  "build": {
+    "appId": "com.financetracker.app",
+    "productName": "Finance Tracker",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "index.html",
+      "styles.css",
+      "app.js"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "electron/icon.ico",
+      "signingHashAlgorithms": null,
+      "sign": null
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Finance Tracker"
+    }
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.0.1",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  }
+}
