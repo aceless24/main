@@ -703,6 +703,56 @@ a.link:hover { text-decoration: underline; }
 .theme-preview-dark  .theme-preview-card  { background: #181c24; }
 .theme-preview-system .theme-preview-card { background: rgba(255,255,255,0.3); }
 
+/* ─── Income Spending Breakdown ─────────────────────────────────── */
+.income-breakdown-list { display: flex; flex-direction: column; gap: 14px; }
+
+.income-breakdown-row {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 16px; padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+
+.income-breakdown-top {
+  display: flex; justify-content: space-between; align-items: flex-start;
+}
+
+.income-breakdown-name { font-size: 14px; font-weight: 700; color: var(--text); }
+.income-breakdown-sub  { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-weight: 500; text-transform: capitalize; }
+
+.income-breakdown-amount {
+  font-size: 20px; font-weight: 800; color: var(--purple); white-space: nowrap;
+}
+.income-breakdown-amount span { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+
+.income-breakdown-bar-wrap {
+  display: flex; align-items: center; gap: 12px;
+}
+
+.income-breakdown-bar-track {
+  flex: 1; height: 10px; background: var(--border);
+  border-radius: 5px; overflow: hidden; display: flex;
+}
+
+.income-breakdown-bar-seg { height: 100%; transition: width 0.6s ease; }
+
+.income-breakdown-remaining {
+  font-size: 12px; font-weight: 800; white-space: nowrap; min-width: 80px; text-align: right;
+}
+
+.income-breakdown-stats {
+  display: flex; flex-direction: column; gap: 5px;
+  border-top: 1px solid var(--border); padding-top: 10px;
+}
+
+.income-breakdown-stat {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text-muted); font-weight: 500;
+}
+.income-breakdown-stat span:last-child { margin-left: auto; color: var(--text); }
+.ibs-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+[data-theme="dark"] .income-breakdown-row { background: var(--bg3); border-color: var(--border); }
+
 /* ─── Minimum Balance Targets ───────────────────────────────────── */
 .panel-desc {
   font-size: 12px; color: var(--text-muted); margin: -6px 0 16px;

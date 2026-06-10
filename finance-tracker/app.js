@@ -461,6 +461,80 @@ function renderAccounts() {
       </div>
     </div>
   `).join('') : '<div class="empty-state">No additional income sources added.</div>';
+
+  renderIncomeSpendingBreakdown();
+}
+
+function renderIncomeSpendingBreakdown() {
+  const container = document.getElementById('income-breakdown-list');
+  if (!container) return;
+
+  const totalInc = totalMonthlyIncome();
+  if (totalInc === 0) {
+    container.innerHTML = '<div class="empty-state">Add income in the Primary Income section to see your breakdown.</div>';
+    return;
+  }
+
+  const totalObligations = totalBills() + totalCCMonthlyCommitment()
+    + Math.max(state.budget?.monthlySavingsTarget || 0, state.savingsAllocation || 0);
+  const spent = spentThisMonth();
+
+  // Build list of all income sources
+  const sources = [
+    { name: 'Primary Income', amount: state.income.monthly, sub: state.income.frequency }
+  ];
+  (state.additionalIncome || []).forEach(i => {
+    sources.push({ name: i.name, amount: i.amount, sub: i.frequency });
+  });
+
+  container.innerHTML = sources.map(src => {
+    const share = totalInc > 0 ? src.amount / totalInc : 0;
+    const billsShare  = totalObligations * share;
+    const spendShare  = spent * share;
+    const totalUsed   = billsShare + spendShare;
+    const remaining   = Math.max(0, src.amount - totalUsed);
+
+    const billsPct  = src.amount > 0 ? Math.min(100, (billsShare / src.amount) * 100) : 0;
+    const spendPct  = src.amount > 0 ? Math.min(100 - billsPct, (spendShare / src.amount) * 100) : 0;
+    const usedTotal = billsPct + spendPct;
+    const barColor  = usedTotal > 90 ? '#ef4444' : usedTotal > 70 ? '#f97316' : '#10b981';
+
+    return `
+      <div class="income-breakdown-row">
+        <div class="income-breakdown-top">
+          <div>
+            <div class="income-breakdown-name">${src.name}</div>
+            <div class="income-breakdown-sub">${src.sub} &middot; ${(share * 100).toFixed(0)}% of total income</div>
+          </div>
+          <div class="income-breakdown-amount">${fmt(src.amount)}<span>/mo</span></div>
+        </div>
+        <div class="income-breakdown-bar-wrap">
+          <div class="income-breakdown-bar-track">
+            <div class="income-breakdown-bar-seg" style="width:${billsPct}%;background:#ef4444"></div>
+            <div class="income-breakdown-bar-seg" style="width:${spendPct}%;background:#f97316"></div>
+          </div>
+          <div class="income-breakdown-remaining" style="color:${barColor}">${fmt(remaining)} left</div>
+        </div>
+        <div class="income-breakdown-stats">
+          <div class="income-breakdown-stat">
+            <span class="ibs-dot" style="background:#ef4444"></span>
+            <span>Bills &amp; Obligations</span>
+            <span>${fmt(billsShare)}</span>
+          </div>
+          <div class="income-breakdown-stat">
+            <span class="ibs-dot" style="background:#f97316"></span>
+            <span>Spending This Month</span>
+            <span>${fmt(spendShare)}</span>
+          </div>
+          <div class="income-breakdown-stat">
+            <span class="ibs-dot" style="background:${barColor}"></span>
+            <span>Remaining</span>
+            <span style="font-weight:800;color:${barColor}">${fmt(remaining)}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function openAddBankAccount() {
