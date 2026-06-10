@@ -857,6 +857,29 @@ body {
 }
 .cc-payoff-card-row:hover { background: var(--bg3); }
 
+/* ─── Bill Payment Checklist ───────────────────────────────────── */
+.bill-checklist-summary {
+  display: flex; gap: 16px; margin-bottom: 16px;
+  background: var(--bg3); border-radius: var(--radius); padding: 12px 16px;
+}
+.bill-checklist-stat { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.bill-checklist-stat span { font-size: 11px; color: var(--text-muted); }
+.bill-checklist-stat strong { font-size: 16px; }
+.bill-checklist-list { display: flex; flex-direction: column; gap: 8px; }
+.bill-check-item {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px 14px;
+  transition: opacity 0.2s;
+}
+.bill-check-item.bill-check-paid { opacity: 0.7; border-color: rgba(46,196,122,0.3); }
+.bill-check-label { display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1; }
+.bill-check-label input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--green); }
+.bill-check-name { font-size: 13px; font-weight: 500; }
+.bill-check-due { font-size: 10px; color: var(--text-muted); margin-left: 4px; }
+.bill-check-right { display: flex; align-items: center; gap: 10px; }
+.bill-check-amount { font-weight: 600; font-size: 14px; min-width: 70px; text-align: right; }
+
 /* ─── Scrollbar ────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }

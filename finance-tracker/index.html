@@ -77,9 +77,21 @@
                 <span>Subscriptions</span>
                 <span class="amount-orange" id="dash-subscription-total">$0.00</span>
               </div>
+              <div class="bills-row">
+                <span>Variable Bills <span style="font-size:10px;color:#7a8099">(high est.)</span></span>
+                <span style="color:#06b6d4" id="dash-variable-total">$0.00</span>
+              </div>
+              <div class="bills-row">
+                <span>CC Payments</span>
+                <span style="color:#a855f7" id="dash-cc-allocation">$0.00</span>
+              </div>
+              <div class="bills-row">
+                <span>Savings Allocation</span>
+                <span style="color:#2ec47a" id="dash-savings-out">$0.00</span>
+              </div>
               <div class="bills-divider"></div>
               <div class="bills-row bills-total-row">
-                <span>Total Monthly Bills</span>
+                <span>Total Monthly Obligations</span>
                 <span id="dash-bills-sum">$0.00</span>
               </div>
             </div>
@@ -206,6 +218,22 @@
             <span>Variable Total This Month</span>
             <strong id="variable-total-footer">$0.00</strong>
           </div>
+        </div>
+
+        <!-- Bill Payment Checklist -->
+        <div class="bills-section-label" style="margin-top:8px">✅ Bill Payment Checklist <span class="bills-section-sub">— check off bills as you pay them this month</span></div>
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Payment Checklist — <span id="bill-checklist-month" style="color:#4f8ef7;font-weight:400"></span></h2>
+            <span class="badge">Resets automatically on the 1st of each month</span>
+          </div>
+          <p style="font-size:12px;color:#7a8099;margin-bottom:12px">Check off each bill as you pay it. Select the account the payment came from — the balance will be deducted automatically. Uncheck to reverse.</p>
+          <div class="bill-checklist-summary">
+            <div class="bill-checklist-stat"><span>Total Due</span><strong id="bill-checklist-total">$0.00</strong></div>
+            <div class="bill-checklist-stat"><span>Paid</span><strong class="amount-green" id="bill-checklist-paid">$0.00</strong></div>
+            <div class="bill-checklist-stat"><span>Remaining</span><strong class="amount-red" id="bill-checklist-remaining">$0.00</strong></div>
+          </div>
+          <div id="bill-checklist-list" class="bill-checklist-list"></div>
         </div>
 
         <!-- Bill History -->

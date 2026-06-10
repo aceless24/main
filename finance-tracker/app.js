@@ -14,6 +14,7 @@ let state = {
   unexpected: [],        // { id, description, amount, date, category, account, note }
   goals: [],             // { id, name, target, saved, targetDate, account }
   budget: { monthlySpendingTarget: 0, monthlySavingsTarget: 0 },
+  billPayments: {},      // { [YYYY-MM]: [{ type, refId, paid, account, paidDate, amount }] }
   lastSeenMonth: ''      // used for new-month detection
 };
 
@@ -126,8 +127,11 @@ function totalAllBills(monthKey) {
 }
 
 function discretionaryBudget() {
+  const key = currentMonthKey();
+  const varEst = totalVariableEstimate(key);
+  const varHigh = varEst.max > 0 ? varEst.max : totalVariableBills(key);
   const savingsOut = Math.max(state.budget?.monthlySavingsTarget || 0, state.savingsAllocation || 0);
-  return totalMonthlyIncome() - totalAllBills() - totalCCMonthlyCommitment() - savingsOut;
+  return totalMonthlyIncome() - totalBills() - varHigh - totalCCMonthlyCommitment() - savingsOut;
 }
 
 function weeklyBudget() {
@@ -204,11 +208,21 @@ function renderDashboard() {
   // bills summary
   const essential = totalEssential();
   const subs = totalSubscriptions();
-  const bills = totalBills();
+  const fixedBills = totalBills();
+  const varEst = totalVariableEstimate(key);
+  const varHigh = varEst.max > 0 ? varEst.max : totalVariableBills(key);
+  const ccMonthly = totalCCMonthlyCommitment();
+  const savingsOut = Math.max(state.budget?.monthlySavingsTarget || 0, state.savingsAllocation || 0);
+  const grandTotal = fixedBills + varHigh + ccMonthly + savingsOut;
   document.getElementById('dash-essential-total').textContent = fmt(essential);
   document.getElementById('dash-subscription-total').textContent = fmt(subs);
-  document.getElementById('dash-bills-sum').textContent = fmt(bills);
-  document.getElementById('dash-bills-total').textContent = fmt(bills) + '/mo';
+  document.getElementById('dash-variable-total').textContent = varHigh > 0
+    ? (varEst.max > 0 && totalVariableBills(key) === 0 ? fmt(varHigh) + ' (est. high)' : fmt(varHigh))
+    : '$0.00';
+  document.getElementById('dash-cc-allocation').textContent = fmt(ccMonthly);
+  document.getElementById('dash-savings-out').textContent = fmt(savingsOut);
+  document.getElementById('dash-bills-sum').textContent = fmt(grandTotal);
+  document.getElementById('dash-bills-total').textContent = fmt(grandTotal) + '/mo';
 
   // spending stats
   document.getElementById('dash-spent').textContent = fmt(spent);
@@ -219,17 +233,18 @@ function renderDashboard() {
   // Bills donut
   const billCtx = document.getElementById('bills-chart').getContext('2d');
   if (billsChart) billsChart.destroy();
-  if (bills > 0) {
+  if (grandTotal > 0) {
+    const donutData = [essential, subs];
+    const donutLabels = ['Essential', 'Subscriptions'];
+    const donutColors = ['#ef4444', '#f59e0b'];
+    if (varHigh > 0) { donutData.push(varHigh); donutLabels.push('Variable Bills'); donutColors.push('#06b6d4'); }
+    if (ccMonthly > 0) { donutData.push(ccMonthly); donutLabels.push('CC Payments'); donutColors.push('#a855f7'); }
+    if (savingsOut > 0) { donutData.push(savingsOut); donutLabels.push('Savings'); donutColors.push('#2ec47a'); }
     billsChart = new Chart(billCtx, {
       type: 'doughnut',
       data: {
-        labels: ['Essential', 'Subscriptions'],
-        datasets: [{
-          data: [essential, subs],
-          backgroundColor: ['#ef4444', '#f59e0b'],
-          borderWidth: 0,
-          hoverOffset: 4
-        }]
+        labels: donutLabels,
+        datasets: [{ data: donutData, backgroundColor: donutColors, borderWidth: 0, hoverOffset: 4 }]
       },
       options: {
         plugins: { legend: { labels: { color: '#7a8099', font: { size: 11 } } } },
@@ -355,6 +370,8 @@ function renderBills() {
   const key = currentMonthKey();
   const lbl = document.getElementById('variable-month-label');
   if (lbl) lbl.textContent = monthLabel(key);
+  const clbl = document.getElementById('bill-checklist-month');
+  if (clbl) clbl.textContent = monthLabel(key);
   const essential = state.bills.filter(b => b.type === 'essential');
   const subs = state.bills.filter(b => b.type === 'subscription');
 
@@ -425,6 +442,9 @@ function renderBills() {
   document.getElementById('variable-total-footer').textContent =
     varTotal > 0 ? fmt(varTotal) : (est.min > 0 ? `${fmt(est.min)} – ${fmt(est.max)} (est.)` : '$0.00');
 
+  // ── Bill Payment Checklist ──────────────────────────────────────
+  renderBillChecklist();
+
   // ── Bill History ────────────────────────────────────────────────
   renderBillHistory();
 
@@ -432,6 +452,103 @@ function renderBills() {
   document.getElementById('subscription-total-footer').textContent = fmt(totalSubscriptions());
 
   renderSavingsAlloc();
+}
+
+/* ─── Bill Payment Checklist ────────────────────────────────────── */
+function getBillChecklistItems(key) {
+  const items = [];
+  state.bills.forEach(b => {
+    items.push({ type: b.type, refId: b.id, name: b.name, amount: b.amount, dueDay: b.dueDay, icon: b.type === 'essential' ? '📌' : '📺' });
+  });
+  const varEntries = getVariableEntries(key);
+  (state.variableBills || []).forEach(vb => {
+    const entry = varEntries.find(e => e.billId === vb.id);
+    const amount = entry ? (entry.amount || entry.estimateMax || entry.estimateMin || 0) : 0;
+    if (amount > 0) {
+      items.push({ type: 'variable', refId: vb.id, name: vb.name, amount, dueDay: vb.dueDay, icon: '📊' });
+    }
+  });
+  (state.creditCards || []).forEach(c => {
+    const minPay = c.minPayment || 0;
+    if (minPay > 0) {
+      items.push({ type: 'cc', refId: c.id, name: `${c.name} — min payment`, amount: minPay, dueDay: c.dueDay, icon: '💳' });
+    }
+  });
+  return items;
+}
+
+function renderBillChecklist() {
+  const key = currentMonthKey();
+  const el = document.getElementById('bill-checklist-list');
+  if (!el) return;
+
+  const items = getBillChecklistItems(key);
+  const payments = (state.billPayments || {})[key] || [];
+
+  if (items.length === 0) {
+    el.innerHTML = '<div class="empty-state">Add bills above to track payments here.</div>';
+    document.getElementById('bill-checklist-total').textContent = '$0.00';
+    document.getElementById('bill-checklist-paid').textContent = '$0.00';
+    document.getElementById('bill-checklist-remaining').textContent = '$0.00';
+    return;
+  }
+
+  const totalOwed = items.reduce((s, i) => s + i.amount, 0);
+  const totalPaid = payments.filter(p => p.paid).reduce((s, p) => s + p.amount, 0);
+  document.getElementById('bill-checklist-total').textContent = fmt(totalOwed);
+  document.getElementById('bill-checklist-paid').textContent = fmt(totalPaid);
+  document.getElementById('bill-checklist-remaining').textContent = fmt(Math.max(0, totalOwed - totalPaid));
+
+  el.innerHTML = items.map(item => {
+    const paidEntry = payments.find(p => p.type === item.type && p.refId === item.refId);
+    const isPaid = paidEntry?.paid || false;
+    const paidFrom = paidEntry?.account || 'checking';
+    const selectId = `acct-${item.type}-${item.refId}`;
+
+    return `<div class="bill-check-item${isPaid ? ' bill-check-paid' : ''}">
+      <label class="bill-check-label">
+        <input type="checkbox" ${isPaid ? 'checked' : ''}
+          onchange="toggleBillPaid('${item.type}','${item.refId}',${item.amount},this.checked,document.getElementById('${selectId}').value)" />
+        <span class="bill-check-name">${item.icon} ${item.name}</span>
+        ${item.dueDay ? `<span class="bill-check-due">Due day ${item.dueDay}</span>` : ''}
+      </label>
+      <div class="bill-check-right">
+        <span class="bill-check-amount ${isPaid ? 'amount-green' : 'amount-red'}">${fmt(item.amount)}</span>
+        <select id="${selectId}" class="select-sm"${isPaid ? ' disabled' : ''}>
+          <option value="checking"${paidFrom === 'checking' ? ' selected' : ''}>Checking</option>
+          <option value="savings"${paidFrom === 'savings' ? ' selected' : ''}>Savings</option>
+        </select>
+        ${isPaid ? `<span style="color:#2ec47a;font-size:11px">✓ ${paidFrom}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleBillPaid(type, refId, amount, isChecked, account) {
+  const key = currentMonthKey();
+  if (!state.billPayments) state.billPayments = {};
+  if (!state.billPayments[key]) state.billPayments[key] = [];
+  const payments = state.billPayments[key];
+  const idx = payments.findIndex(p => p.type === type && p.refId === refId);
+
+  if (isChecked) {
+    if (state.accounts[account] !== undefined) {
+      state.accounts[account] = Math.max(0, (state.accounts[account] || 0) - amount);
+    }
+    const entry = { type, refId, paid: true, account, paidDate: new Date().toISOString().slice(0, 10), amount };
+    if (idx >= 0) payments[idx] = entry;
+    else payments.push(entry);
+  } else {
+    if (idx >= 0 && payments[idx].paid) {
+      const prevAcct = payments[idx].account;
+      if (state.accounts[prevAcct] !== undefined) {
+        state.accounts[prevAcct] = (state.accounts[prevAcct] || 0) + payments[idx].amount;
+      }
+      payments[idx] = { ...payments[idx], paid: false };
+    }
+  }
+  saveState();
+  renderBillChecklist();
 }
 
 function renderSavingsAlloc() {
