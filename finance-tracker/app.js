@@ -6,7 +6,8 @@ let state = {
   bills: [],             // FIXED bills: { id, name, amount, type:'essential'|'subscription', category, dueDay }
   variableBills: [],     // Variable bill definitions: { id, name, category, dueDay }
   variableBillEntries: [],// Per-month entries: { id, billId, month:'YYYY-MM', amount, estimateMin, estimateMax }
-  creditCards: [],       // { id, name, balance, limit, apr, minPayment, dueDay }
+  creditCards: [],       // { id, name, balance, limit, apr, minPayment, dueDay, network, issuer, customIssuer, statementBalance, paymentAllocation }
+  ccPaymentHistory: [],  // { id, cardId, month, amount, date, note }
   ccExtraAllocation: 0,
   savingsAllocation: 0,
   transactions: [],      // { id, description, amount, date, category, account, note }
@@ -811,8 +812,11 @@ function renderOutlook() {
   const months = parseInt(document.getElementById('outlook-months').value);
   const savingsRate = parseFloat(document.getElementById('outlook-savings-rate').value);
 
-  const inc = state.income.monthly;
-  const bills = totalBills();
+  const inc = totalMonthlyIncome();
+  // Fixed bills + variable bill HIGH estimate (conservative/accurate projection)
+  const varEst = totalVariableEstimate(currentMonthKey());
+  const varHighMonthly = varEst.max > 0 ? varEst.max : totalVariableBills(currentMonthKey());
+  const bills = totalBills() + varHighMonthly + totalCCMonthlyCommitment();
   const disc = discretionaryBudget();
 
   // Calculate average monthly spending from last 3 months
@@ -940,20 +944,39 @@ function renderGoals() {
     return;
   }
 
+  const now = new Date();
+
   list.innerHTML = state.goals.map(g => {
-    const pct = g.target > 0 ? Math.min(100, (g.saved / g.target) * 100) : 0;
-    const remaining = g.target - g.saved;
-    const targetDate = new Date(g.targetDate + 'T00:00:00');
-    const now = new Date();
-    const monthsLeft = Math.max(1, (targetDate.getFullYear() - now.getFullYear()) * 12 + (targetDate.getMonth() - now.getMonth()));
-    const perMonth = remaining > 0 ? remaining / monthsLeft : 0;
+    // If monthly contribution is set, calculate saved based on contributions
+    const effectiveSaved = g.monthlyContrib > 0 ? g.saved : g.saved;
+    const pct = g.target > 0 ? Math.min(100, (effectiveSaved / g.target) * 100) : 0;
+    const remaining = Math.max(0, g.target - effectiveSaved);
+
+    // Determine months left / per-month needed
+    let monthsLeftStr = '', perMonthStr = '';
+    if (g.targetDate) {
+      const td = new Date(g.targetDate + 'T00:00:00');
+      const mo = Math.max(1, (td.getFullYear() - now.getFullYear()) * 12 + (td.getMonth() - now.getMonth()));
+      const perMonth = remaining > 0 ? remaining / mo : 0;
+      monthsLeftStr = `${mo} months left`;
+      perMonthStr = `${fmt(perMonth)}/mo needed`;
+    } else if (g.monthlyContrib > 0) {
+      const mo = g.monthlyContrib > 0 ? Math.ceil(remaining / g.monthlyContrib) : null;
+      monthsLeftStr = mo ? `~${formatMonths(mo)} at current rate` : '';
+      perMonthStr = `${fmt(g.monthlyContrib)}/mo set`;
+    } else {
+      monthsLeftStr = 'No target date set';
+      perMonthStr = '';
+    }
+
+    const metaSub = g.targetDate ? `Target: ${formatDate(g.targetDate)}` : 'No target date';
 
     return `
       <div class="goal-item">
         <div class="goal-header">
           <div>
             <div class="goal-name">${g.name}</div>
-            <div class="goal-meta">${g.account} account &middot; Target: ${formatDate(g.targetDate + '')}</div>
+            <div class="goal-meta">${g.account} account &middot; ${metaSub}${g.monthlyContrib > 0 ? ' &middot; ' + fmt(g.monthlyContrib) + '/mo' : ''}</div>
           </div>
           <div class="goal-actions">
             <button onclick="editGoal('${g.id}')" title="Edit">&#9998;</button>
@@ -964,10 +987,11 @@ function renderGoals() {
           <div class="goal-progress-fill" style="width:${pct}%"></div>
         </div>
         <div class="goal-stats">
-          <span>${fmt(g.saved)} saved of ${fmt(g.target)}</span>
+          <span>${fmt(effectiveSaved)} saved of ${fmt(g.target)}</span>
           <span>${pct.toFixed(0)}% complete</span>
           <span>${fmt(remaining)} to go</span>
         </div>
+        ${monthsLeftStr ? `<div style="margin-top:6px;font-size:11px;color:#7a8099">${monthsLeftStr}${perMonthStr ? ' &middot; ' + perMonthStr : ''}</div>` : ''}
       </div>
     `;
   }).join('');
@@ -976,16 +1000,26 @@ function renderGoals() {
   const planEl = document.getElementById('goals-plan');
   planEl.innerHTML = state.goals.map(g => {
     const remaining = Math.max(0, g.target - g.saved);
-    const targetDate = new Date(g.targetDate + 'T00:00:00');
-    const now = new Date();
-    const monthsLeft = Math.max(1, (targetDate.getFullYear() - now.getFullYear()) * 12 + (targetDate.getMonth() - now.getMonth()));
-    const perMonth = remaining / monthsLeft;
+    let perMonth = 0, detail = '';
+
+    if (g.monthlyContrib > 0) {
+      perMonth = g.monthlyContrib;
+      const mo = perMonth > 0 ? Math.ceil(remaining / perMonth) : null;
+      detail = mo ? `~${formatMonths(mo)} to go` : 'Ongoing';
+    } else if (g.targetDate) {
+      const td = new Date(g.targetDate + 'T00:00:00');
+      const mo = Math.max(1, (td.getFullYear() - now.getFullYear()) * 12 + (td.getMonth() - now.getMonth()));
+      perMonth = remaining / mo;
+      detail = `${mo} months remaining`;
+    } else {
+      return `<div class="goal-plan-row"><div><strong>${g.name}</strong><div style="font-size:11px;color:#7a8099">No target date or monthly contribution set</div></div><div class="goal-plan-monthly">—</div></div>`;
+    }
 
     return `
       <div class="goal-plan-row">
         <div>
           <strong>${g.name}</strong>
-          <div style="font-size:11px;color:#7a8099;margin-top:2px">${monthsLeft} months remaining &middot; ${fmt(remaining)} left</div>
+          <div style="font-size:11px;color:#7a8099;margin-top:2px">${detail} &middot; ${fmt(remaining)} left</div>
         </div>
         <div class="goal-plan-monthly">${fmt(perMonth)}/mo</div>
       </div>
@@ -1207,11 +1241,9 @@ function openAddGoal() {
   document.getElementById('goal-name').value = '';
   document.getElementById('goal-target').value = '';
   document.getElementById('goal-saved').value = '';
+  document.getElementById('goal-monthly-contrib').value = '';
   document.getElementById('goal-account').value = 'savings';
-  // default to 6 months out
-  const d = new Date();
-  d.setMonth(d.getMonth() + 6);
-  document.getElementById('goal-date').value = d.toISOString().slice(0, 10);
+  document.getElementById('goal-date').value = '';
   openModal('modal-goal');
 }
 
@@ -1223,8 +1255,9 @@ function editGoal(id) {
   document.getElementById('goal-name').value = g.name;
   document.getElementById('goal-target').value = g.target;
   document.getElementById('goal-saved').value = g.saved;
+  document.getElementById('goal-monthly-contrib').value = g.monthlyContrib || '';
   document.getElementById('goal-account').value = g.account;
-  document.getElementById('goal-date').value = g.targetDate;
+  document.getElementById('goal-date').value = g.targetDate || '';
   openModal('modal-goal');
 }
 
@@ -1232,17 +1265,18 @@ function saveGoal() {
   const name = document.getElementById('goal-name').value.trim();
   const target = parseFloat(document.getElementById('goal-target').value);
   const saved = parseFloat(document.getElementById('goal-saved').value) || 0;
+  const monthlyContrib = parseFloat(document.getElementById('goal-monthly-contrib').value) || 0;
   const account = document.getElementById('goal-account').value;
-  const targetDate = document.getElementById('goal-date').value;
+  const targetDate = document.getElementById('goal-date').value || null;
   const editId = document.getElementById('goal-edit-id').value;
 
-  if (!name || isNaN(target) || target <= 0 || !targetDate) return alert('Please fill in all required fields.');
+  if (!name || isNaN(target) || target <= 0) return alert('Please enter a goal name and target amount.');
 
   if (editId) {
     const idx = state.goals.findIndex(g => g.id === editId);
-    if (idx >= 0) state.goals[idx] = { ...state.goals[idx], name, target, saved, account, targetDate };
+    if (idx >= 0) state.goals[idx] = { ...state.goals[idx], name, target, saved, monthlyContrib, account, targetDate };
   } else {
-    state.goals.push({ id: uid(), name, target, saved, account, targetDate });
+    state.goals.push({ id: uid(), name, target, saved, monthlyContrib, account, targetDate });
   }
 
   saveState();
@@ -1384,6 +1418,10 @@ function renderCreditCards() {
             <span class="cc-card-field-value">${fmt(c.statementBalance || 0)}</span>
           </div>
           <div class="cc-card-field">
+            <span class="cc-card-field-label">Available Credit</span>
+            <span class="cc-card-field-value amount-green">${fmt(Math.max(0, (c.limit || 0) - (c.balance || 0)))}</span>
+          </div>
+          <div class="cc-card-field">
             <span class="cc-card-field-label">Payment Allocation</span>
             <span class="cc-card-field-value" style="color:#4f8ef7">${fmt(c.paymentAllocation || 0)}</span>
           </div>
@@ -1401,9 +1439,66 @@ function renderCreditCards() {
             <div class="progress-fill" style="width:${Math.min(100, cardUtil)}%;background:${utilColor}"></div>
           </div>
         </div>
+        <div class="cc-card-footer">
+          <div class="cc-payoff-info">
+            <span>Est. Payoff: <strong style="color:#a855f7">${calcPayoff(c)}</strong></span>
+            <span style="color:#7a8099;font-size:11px">at current payment</span>
+          </div>
+          <button class="btn btn-sm btn-primary" onclick="openLogPayment('${c.id}')">+ Log Payment</button>
+        </div>
       </div>`;
     }).join('');
   }
+
+  // Payoff Summary
+  const payoffEl = document.getElementById('cc-payoff-summary');
+  if (cards.length > 0) {
+    const totalMonthly = cards.reduce((s, c) => s + Math.max(c.paymentAllocation || 0, c.minPayment || 0), 0);
+    const totalBal = cards.reduce((s, c) => s + (c.balance || 0), 0);
+    const overallMonths = totalMonthly > 0 ? Math.ceil(totalBal / totalMonthly) : null;
+    payoffEl.innerHTML = `
+      <div class="cc-payoff-row">
+        <div class="cc-payoff-stat"><span>Total Balance</span><strong class="amount-red">${fmt(totalBal)}</strong></div>
+        <div class="cc-payoff-stat"><span>Monthly Payments</span><strong class="amount-orange">${fmt(totalMonthly)}</strong></div>
+        <div class="cc-payoff-stat"><span>Overall Payoff Est.</span><strong style="color:#a855f7">${overallMonths ? formatMonths(overallMonths) : '—'}</strong></div>
+      </div>
+      <div style="margin-top:12px">
+        ${cards.map(c => {
+          const mo = calcPayoffMonths(c);
+          const pct = c.limit > 0 ? Math.min(100, (c.balance / c.limit) * 100) : 0;
+          const color = pct > 75 ? '#ef4444' : pct > 30 ? '#f59e0b' : '#2ec47a';
+          return `<div class="cc-payoff-card-row">
+            <span>${c.name}</span>
+            <span>${fmt(c.balance || 0)} balance</span>
+            <span style="color:#a855f7">${mo ? formatMonths(mo) : '—'}</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+  } else {
+    payoffEl.innerHTML = '<div class="empty-state">No credit cards to project.</div>';
+  }
+
+  // Payment History
+  const histEl = document.getElementById('cc-payment-history-list');
+  const payments = [...(state.ccPaymentHistory || [])].sort((a,b) => new Date(b.date) - new Date(a.date));
+  histEl.innerHTML = payments.length ? payments.slice(0, 20).map(p => {
+    const card = cards.find(c => c.id === p.cardId);
+    return `<div class="tx-item">
+      <div class="tx-item-left">
+        <div class="tx-icon" style="background:rgba(46,196,122,0.15);color:#2ec47a">💳</div>
+        <div class="tx-info">
+          <div class="tx-name">Payment — ${card ? card.name : 'Unknown Card'}</div>
+          <div class="tx-meta">${formatDate(p.date)} &middot; ${p.note || 'Manual payment'}</div>
+        </div>
+      </div>
+      <div class="tx-item-right">
+        <span class="tx-amount amount-green">-${fmt(p.amount)}</span>
+        <div class="tx-actions">
+          <button onclick="deleteCCPayment('${p.id}')" title="Delete">&#10005;</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('') : '<div class="empty-state">No payments logged yet.</div>';
 
   // Monthly CC Spending
   const creditTxs = state.transactions.filter(t => t.account === 'credit' && t.date.startsWith(key));
@@ -1449,11 +1544,73 @@ function renderCreditCards() {
   }
 }
 
+// Payoff helpers
+function calcPayoffMonths(card) {
+  const bal = card.balance || 0;
+  const payment = Math.max(card.paymentAllocation || 0, card.minPayment || 0);
+  if (bal <= 0 || payment <= 0) return null;
+  const monthlyRate = (card.apr || 0) / 100 / 12;
+  if (monthlyRate === 0) return Math.ceil(bal / payment);
+  // Amortization formula
+  if (payment <= bal * monthlyRate) return null; // payment doesn't cover interest
+  return Math.ceil(Math.log(payment / (payment - bal * monthlyRate)) / Math.log(1 + monthlyRate));
+}
+
+function calcPayoff(card) {
+  const mo = calcPayoffMonths(card);
+  return mo ? formatMonths(mo) : (card.balance <= 0 ? '🎉 Paid off!' : '—');
+}
+
+function formatMonths(mo) {
+  if (mo <= 0) return '—';
+  const y = Math.floor(mo / 12);
+  const m = mo % 12;
+  if (y === 0) return `${m} mo`;
+  if (m === 0) return `${y} yr`;
+  return `${y}y ${m}m`;
+}
+
+// Log a payment against a card's balance
+function openLogPayment(cardId) {
+  const card = (state.creditCards || []).find(c => c.id === cardId);
+  if (!card) return;
+  document.getElementById('log-payment-card-id').value = cardId;
+  document.getElementById('log-payment-card-name').textContent = card.name;
+  document.getElementById('log-payment-amount').value = card.paymentAllocation || card.minPayment || '';
+  document.getElementById('log-payment-date').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('log-payment-note').value = '';
+  openModal('modal-log-payment');
+}
+
+function saveLogPayment() {
+  const cardId = document.getElementById('log-payment-card-id').value;
+  const amount = parseFloat(document.getElementById('log-payment-amount').value);
+  const date = document.getElementById('log-payment-date').value;
+  const note = document.getElementById('log-payment-note').value.trim();
+  if (isNaN(amount) || amount <= 0) return alert('Please enter a valid payment amount.');
+
+  // Deduct from card balance
+  const idx = (state.creditCards || []).findIndex(c => c.id === cardId);
+  if (idx >= 0) state.creditCards[idx].balance = Math.max(0, (state.creditCards[idx].balance || 0) - amount);
+
+  // Log payment history
+  if (!state.ccPaymentHistory) state.ccPaymentHistory = [];
+  state.ccPaymentHistory.push({ id: uid(), cardId, month: date.slice(0,7), amount, date, note });
+
+  saveState();
+  closeModal('modal-log-payment');
+  renderCreditCards();
+}
+
+function deleteCCPayment(id) {
+  if (!confirm('Remove this payment record? Note: this does NOT add the amount back to your card balance.')) return;
+  state.ccPaymentHistory = (state.ccPaymentHistory || []).filter(p => p.id !== id);
+  saveState();
+  renderCreditCards();
+}
+
 function viewCCTransactions(cardId) {
-  // Navigate to spending and filter by credit
   navigate('spending');
-  const accountSel = document.getElementById('filter-category');
-  // For now show all credit transactions
   renderSpending();
 }
 
@@ -1666,6 +1823,12 @@ function init() {
       document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
       document.getElementById('modal-overlay').classList.add('hidden');
     }
+  });
+
+  // Prevent overlay from stealing focus/clicks from modal inputs
+  document.querySelectorAll('.modal').forEach(modal => {
+    modal.addEventListener('mousedown', e => e.stopPropagation());
+    modal.addEventListener('click', e => e.stopPropagation());
   });
 
   checkNewMonth();

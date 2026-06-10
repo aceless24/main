@@ -282,6 +282,24 @@
           <div id="cc-cards-list"></div>
         </div>
 
+        <!-- Payoff Projections -->
+        <div class="panel">
+          <div class="panel-header">
+            <h2>📅 Payoff Projections</h2>
+            <span class="badge">Based on current payment allocations</span>
+          </div>
+          <div id="cc-payoff-summary"></div>
+        </div>
+
+        <!-- Payment History -->
+        <div class="panel">
+          <div class="panel-header">
+            <h2>✅ Payment History</h2>
+            <span class="badge">Last 20 payments</span>
+          </div>
+          <div id="cc-payment-history-list" class="transaction-list"></div>
+        </div>
+
         <!-- Monthly CC Spending -->
         <div class="panel">
           <div class="panel-header">
@@ -408,8 +426,15 @@
             <div class="outlook-controls">
               <label>Timeframe:</label>
               <select id="outlook-months" class="select-sm" onchange="renderOutlook()">
+                <option value="3">3 Months</option>
                 <option value="6">6 Months</option>
                 <option value="12" selected>12 Months</option>
+                <option value="18">18 Months</option>
+                <option value="24">2 Years</option>
+                <option value="36">3 Years</option>
+                <option value="48">4 Years</option>
+                <option value="60">5 Years</option>
+                <option value="120">10 Years</option>
               </select>
               <label>Savings Rate:</label>
               <select id="outlook-savings-rate" class="select-sm" onchange="renderOutlook()">
@@ -884,6 +909,37 @@
     </div>
 
     <!-- Add Goal -->
+    <!-- Log CC Payment -->
+    <div id="modal-log-payment" class="modal hidden">
+      <div class="modal-header">
+        <h3>Log Credit Card Payment</h3>
+        <button class="modal-close" onclick="closeModal('modal-log-payment')">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="log-payment-card-id" />
+        <div style="font-size:15px;font-weight:600;margin-bottom:14px;color:#4f8ef7" id="log-payment-card-name"></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Amount Paid ($)</label>
+            <input type="number" id="log-payment-amount" class="input" placeholder="0.00" step="0.01" min="0" />
+          </div>
+          <div class="form-group">
+            <label>Payment Date</label>
+            <input type="date" id="log-payment-date" class="input" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Note (optional)</label>
+          <input type="text" id="log-payment-note" class="input" placeholder="e.g. Statement payment, extra payment" />
+        </div>
+        <p style="font-size:11px;color:#7a8099;margin-top:4px">This will deduct the amount from the card's current balance.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-log-payment')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveLogPayment()">Save Payment</button>
+      </div>
+    </div>
+
     <div id="modal-goal" class="modal hidden">
       <div class="modal-header">
         <h3 id="modal-goal-title">Add Savings Goal</h3>
@@ -905,9 +961,15 @@
             <input type="number" id="goal-saved" class="input" placeholder="0.00" step="0.01" min="0" />
           </div>
         </div>
-        <div class="form-group">
-          <label>Target Date</label>
-          <input type="date" id="goal-date" class="input" />
+        <div class="form-row">
+          <div class="form-group">
+            <label>Monthly Contribution ($) <span style="color:#7a8099;font-size:10px">optional</span></label>
+            <input type="number" id="goal-monthly-contrib" class="input" placeholder="e.g. 100.00 per month" step="0.01" min="0" />
+          </div>
+          <div class="form-group">
+            <label>Target Date <span style="color:#7a8099;font-size:10px">optional</span></label>
+            <input type="date" id="goal-date" class="input" />
+          </div>
         </div>
         <div class="form-group">
           <label>Account</label>

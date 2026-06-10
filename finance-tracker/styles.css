@@ -816,6 +816,47 @@ body {
 .cc-payment-ok { color: var(--green); }
 .cc-payment-warn { color: var(--red); }
 
+.cc-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.cc-payoff-info { font-size: 12px; color: var(--text-muted); }
+.cc-payoff-info strong { font-size: 13px; }
+
+.cc-payoff-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cc-payoff-stat {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cc-payoff-stat span { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.cc-payoff-stat strong { font-size: 18px; font-weight: 700; }
+
+.cc-payoff-card-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.cc-payoff-card-row:hover { background: var(--bg3); }
+
 /* ─── Scrollbar ────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
