@@ -52,6 +52,7 @@
             <div class="card-label">Available to Spend</div>
             <div class="card-value" id="dash-available">$0.00</div>
             <div class="card-sub">After all bills</div>
+            <div id="dash-balance-constraint-note" class="card-constraint-note" style="display:none"></div>
           </div>
           <div class="card card-orange">
             <div class="card-label">Monthly Budget Left</div>
@@ -433,6 +434,14 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Minimum Balance Targets</h2>
+          </div>
+          <div class="panel-desc">Set the minimum balance you want to keep in each account. This amount will be reserved and deducted from your available spending budget.</div>
+          <div id="min-balance-list" class="min-balance-list"></div>
         </div>
 
         <div class="two-col">

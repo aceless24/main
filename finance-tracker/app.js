@@ -15,6 +15,7 @@ let state = {
   goals: [],             // { id, name, target, saved, targetDate, account }
   budget: { monthlySpendingTarget: 0, monthlySavingsTarget: 0 },
   billPayments: {},      // { [YYYY-MM]: [{ type, refId, paid, account, paidDate, amount }] }
+  minBalanceTargets: {}, // { [accountId]: number } — minimum balance to keep in each account
   lastSeenMonth: ''      // used for new-month detection
 };
 
@@ -159,6 +160,28 @@ function availableToSpend() {
   return discretionaryBudget() - spentThisMonth();
 }
 
+function totalMinBalanceReserved() {
+  return Object.entries(state.minBalanceTargets || {}).reduce((sum, [id, target]) => {
+    return getAccountById(id) ? sum + (target || 0) : sum;
+  }, 0);
+}
+
+// Conservative "how much can I actually spend" — min of income-based discretionary
+// and (total account balance minus all minimum-balance reserves).
+function adjustedDiscretionary() {
+  const incBased = discretionaryBudget();
+  const balanceBased = totalBalance() - totalMinBalanceReserved();
+  return Math.min(incBased, Math.max(0, balanceBased));
+}
+
+function adjustedAvailableToSpend() {
+  return adjustedDiscretionary() - spentThisMonth();
+}
+
+function adjustedWeeklyBudget() {
+  return adjustedDiscretionary() / 4.33;
+}
+
 function totalBalance() {
   return (state.bankAccounts || []).reduce((s, a) => s + (a.balance || 0), 0);
 }
@@ -228,15 +251,29 @@ function renderDashboard() {
   const key = currentMonthKey();
   const spent = spentThisMonth();
   const disc = discretionaryBudget();
-  const avail = availableToSpend();
-  const wkly = weeklyBudget();
+  const adjDisc = adjustedDiscretionary();
+  const avail = adjustedAvailableToSpend();
+  const wkly = adjustedWeeklyBudget();
   const txs = getTransactionsForMonth(key);
+  const minReserved = totalMinBalanceReserved();
+  const balConstrained = minReserved > 0 && adjDisc < disc;
 
   // cards
   document.getElementById('dash-total-balance').textContent = fmt(totalBalance());
   document.getElementById('dash-available').textContent = fmt(Math.max(0, avail));
-  document.getElementById('dash-monthly-left').textContent = fmt(Math.max(0, disc - spent));
+  document.getElementById('dash-monthly-left').textContent = fmt(Math.max(0, adjDisc - spent));
   document.getElementById('dash-weekly').textContent = fmt(Math.max(0, wkly));
+
+  // show/hide balance-constraint note on Available to Spend card
+  const noteEl = document.getElementById('dash-balance-constraint-note');
+  if (noteEl) {
+    if (balConstrained) {
+      noteEl.textContent = `Balance target reserves ${fmt(minReserved)}`;
+      noteEl.style.display = '';
+    } else {
+      noteEl.style.display = 'none';
+    }
+  }
 
   // bills summary
   const essential = totalEssential();
@@ -259,8 +296,8 @@ function renderDashboard() {
 
   // spending stats
   document.getElementById('dash-spent').textContent = fmt(spent);
-  document.getElementById('dash-budgeted').textContent = fmt(disc);
-  document.getElementById('dash-remaining').textContent = fmt(Math.max(0, disc - spent));
+  document.getElementById('dash-budgeted').textContent = fmt(adjDisc);
+  document.getElementById('dash-remaining').textContent = fmt(Math.max(0, adjDisc - spent));
   document.getElementById('dash-spent-badge').textContent = fmt(spent) + ' spent';
 
   // Bills donut
@@ -290,13 +327,13 @@ function renderDashboard() {
   // Spending doughnut
   const spendCtx = document.getElementById('spending-chart').getContext('2d');
   if (spendingDonutChart) spendingDonutChart.destroy();
-  const pct = disc > 0 ? Math.min(100, (spent / disc) * 100) : 0;
+  const pct = adjDisc > 0 ? Math.min(100, (spent / adjDisc) * 100) : 0;
   spendingDonutChart = new Chart(spendCtx, {
     type: 'doughnut',
     data: {
       labels: ['Spent', 'Remaining'],
       datasets: [{
-        data: [spent, Math.max(0, disc - spent)],
+        data: [spent, Math.max(0, adjDisc - spent)],
         backgroundColor: [pct > 90 ? '#ef4444' : '#7c3aed', '#ede9fe'],
         borderWidth: 0, hoverOffset: 4
       }]
@@ -915,19 +952,69 @@ function renderSpending() {
 /* ─── Budget ────────────────────────────────────────────────────── */
 let budgetVsSpendChart;
 
+function renderMinBalanceTargets() {
+  const container = document.getElementById('min-balance-list');
+  if (!container) return;
+  const accounts = state.bankAccounts || [];
+  if (accounts.length === 0) {
+    container.innerHTML = '<div class="empty-state">No accounts found. Add accounts under the Accounts tab first.</div>';
+    return;
+  }
+  container.innerHTML = accounts.map(a => {
+    const target = state.minBalanceTargets?.[a.id] || 0;
+    const available = Math.max(0, (a.balance || 0) - target);
+    const reserved = target > 0;
+    return `
+      <div class="min-balance-row">
+        <div class="min-balance-acct">
+          <div class="min-balance-acct-name">${accountDisplayName(a)}</div>
+          <div class="min-balance-acct-type">${a.accountType} &middot; Current balance: ${fmt(a.balance || 0)}</div>
+        </div>
+        <div class="min-balance-input-wrap">
+          <span class="input-prefix">$</span>
+          <input type="number" class="input min-balance-input" placeholder="0.00" step="0.01" min="0"
+            value="${target > 0 ? target : ''}"
+            onchange="saveMinBalanceTarget('${a.id}', this.value)"
+            data-acct="${a.id}" />
+        </div>
+        <div class="min-balance-available ${reserved ? (available === 0 ? 'min-bal-zero' : 'min-bal-ok') : ''}">
+          <div class="min-balance-avail-label">Available to use</div>
+          <div class="min-balance-avail-value">${fmt(available)}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function saveMinBalanceTarget(accountId, value) {
+  if (!state.minBalanceTargets) state.minBalanceTargets = {};
+  const num = parseFloat(value) || 0;
+  if (num > 0) {
+    state.minBalanceTargets[accountId] = num;
+  } else {
+    delete state.minBalanceTargets[accountId];
+  }
+  saveState();
+  renderBudget();
+  renderDashboard();
+}
+
 function renderBudget() {
   const inc = totalMonthlyIncome();
   const bills = totalBills();
+  const adjDisc = adjustedDiscretionary();
+  const adjWkly = adjustedWeeklyBudget();
   const disc = discretionaryBudget();
-  const wkly = weeklyBudget();
   const spent = spentThisMonth();
   const spendTarget = state.budget?.monthlySpendingTarget || 0;
   const saveTarget = state.budget?.monthlySavingsTarget || 0;
 
   document.getElementById('budget-income').textContent = fmt(inc);
   document.getElementById('budget-bills').textContent = fmt(bills);
-  document.getElementById('budget-discretionary').textContent = fmt(Math.max(0, disc));
-  document.getElementById('budget-weekly').textContent = fmt(Math.max(0, wkly));
+  document.getElementById('budget-discretionary').textContent = fmt(Math.max(0, adjDisc));
+  document.getElementById('budget-weekly').textContent = fmt(Math.max(0, adjWkly));
+
+  renderMinBalanceTargets();
 
   // Spending target inputs
   document.getElementById('budget-spend-target').value = spendTarget || '';
@@ -935,16 +1022,24 @@ function renderBudget() {
 
   // breakdown
   const breakdown = document.getElementById('budget-breakdown');
+  const minReserved = totalMinBalanceReserved();
   const billsPct   = inc > 0 ? (bills / inc) * 100 : 0;
   const savePct    = inc > 0 ? (saveTarget / inc) * 100 : 0;
-  const spendPct   = inc > 0 ? (spent / inc) * 100 : 0;
-  const targetPct  = inc > 0 ? (spendTarget / inc) * 100 : 0;
-  const remaining  = inc - bills - saveTarget - spent;
-  const remainPct  = inc > 0 ? Math.max(0, (remaining / inc) * 100) : 0;
+  const spendPct   = adjDisc > 0 ? Math.min(100, (spent / adjDisc) * 100) : 0;
+  const targetPct  = adjDisc > 0 ? Math.min(100, (spendTarget / adjDisc) * 100) : 0;
+  const minResPct  = inc > 0 ? Math.min(100, (minReserved / inc) * 100) : 0;
+  const remaining  = adjDisc - spent;
+  const remainPct  = adjDisc > 0 ? Math.max(0, (remaining / adjDisc) * 100) : 0;
 
   const spendVsTarget = spendTarget > 0
     ? `<span style="color:${spent > spendTarget ? '#ef4444' : '#10b981'}">${fmt(spent)} of ${fmt(spendTarget)} target</span>`
     : `<span>${fmt(spent)} spent</span>`;
+
+  const minResRow = minReserved > 0 ? `
+    <div class="budget-item">
+      <div class="budget-item-header"><span>Min. Balance Reserved</span><span style="color:#f59e0b">${fmt(minReserved)} (${minResPct.toFixed(0)}% of income)</span></div>
+      <div class="budget-bar-track"><div class="budget-bar-fill" style="width:${Math.min(100,minResPct)}%;background:#f59e0b"></div></div>
+    </div>` : '';
 
   breakdown.innerHTML = `
     <div class="budget-item">
@@ -955,6 +1050,7 @@ function renderBudget() {
       <div class="budget-item-header"><span>Monthly Savings Target</span><span style="color:#a855f7">${fmt(saveTarget)} (${savePct.toFixed(0)}%)</span></div>
       <div class="budget-bar-track"><div class="budget-bar-fill" style="width:${Math.min(100,savePct)}%;background:#a855f7"></div></div>
     </div>
+    ${minResRow}
     <div class="budget-item">
       <div class="budget-item-header"><span>Discretionary Spending</span>${spendVsTarget}</div>
       <div class="budget-bar-track">

@@ -703,6 +703,42 @@ a.link:hover { text-decoration: underline; }
 .theme-preview-dark  .theme-preview-card  { background: #181c24; }
 .theme-preview-system .theme-preview-card { background: rgba(255,255,255,0.3); }
 
+/* ─── Minimum Balance Targets ───────────────────────────────────── */
+.panel-desc {
+  font-size: 12px; color: var(--text-muted); margin: -6px 0 16px;
+  line-height: 1.6; font-weight: 500;
+}
+
+.min-balance-list { display: flex; flex-direction: column; gap: 10px; }
+
+.min-balance-row {
+  display: flex; align-items: center; gap: 16px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 14px; padding: 14px 16px;
+}
+
+.min-balance-acct { flex: 1; min-width: 0; }
+.min-balance-acct-name { font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.min-balance-acct-type { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-weight: 500; text-transform: capitalize; }
+
+.min-balance-input-wrap { display: flex; align-items: center; gap: 0; width: 140px; flex-shrink: 0; }
+.min-balance-input { width: 100%; text-align: right; border-radius: 0 10px 10px 0 !important; }
+.min-balance-input-wrap .input-prefix { border-radius: 10px 0 0 10px; border-right: none; }
+
+.min-balance-available { text-align: right; min-width: 110px; flex-shrink: 0; }
+.min-balance-avail-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+.min-balance-avail-value { font-size: 17px; font-weight: 800; color: var(--text); margin-top: 2px; }
+.min-bal-ok .min-balance-avail-value { color: var(--green); }
+.min-bal-zero .min-balance-avail-value { color: var(--red); }
+
+.card-constraint-note {
+  font-size: 10px; font-weight: 700; color: #f59e0b;
+  background: rgba(245,158,11,0.1); border-radius: 6px;
+  padding: 3px 7px; margin-top: 6px; display: inline-block;
+}
+
+[data-theme="dark"] .min-balance-row { background: var(--bg3); border-color: var(--border); }
+
 /* ─── Scrollbar ──────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
