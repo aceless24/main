@@ -857,6 +857,28 @@ body {
 }
 .cc-payoff-card-row:hover { background: var(--bg3); }
 
+/* ─── Bank Account Cards ───────────────────────────────────────── */
+.bank-accounts-list { display: flex; flex-direction: column; gap: 12px; }
+.bank-acct-card {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+}
+.bank-acct-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 10px;
+}
+.bank-acct-title { display: flex; align-items: center; gap: 10px; }
+.bank-acct-name { font-size: 15px; font-weight: 600; }
+.bank-acct-type { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.bank-acct-actions { display: flex; gap: 8px; }
+.bank-acct-actions button {
+  background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+  color: var(--text); border-radius: 6px; padding: 4px 10px;
+  cursor: pointer; font-size: 12px;
+}
+.bank-acct-actions button:hover { background: rgba(79,142,247,0.15); }
+.bank-acct-balance { font-size: 24px; font-weight: 700; color: var(--blue); }
+
 /* ─── Bill Payment Checklist ───────────────────────────────────── */
 .bill-checklist-summary {
   display: flex; gap: 16px; margin-bottom: 16px;

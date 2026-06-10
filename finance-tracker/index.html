@@ -134,20 +134,29 @@
       <section id="section-accounts" class="section">
         <div class="cards-row">
           <div class="card card-blue">
-            <div class="card-label">Checking Account</div>
+            <div class="card-label">Total Checking</div>
             <div class="card-value" id="checking-display">$0.00</div>
-            <button class="btn btn-sm btn-outline mt-8" onclick="openEditAccount('checking')">Edit</button>
+            <div class="card-sub">All checking accounts</div>
           </div>
           <div class="card card-green">
-            <div class="card-label">Savings Account</div>
+            <div class="card-label">Total Savings</div>
             <div class="card-value" id="savings-display">$0.00</div>
-            <button class="btn btn-sm btn-outline mt-8" onclick="openEditAccount('savings')">Edit</button>
+            <div class="card-sub">Savings, MM, CD</div>
           </div>
           <div class="card card-purple">
             <div class="card-label">Total Balance</div>
             <div class="card-value" id="total-balance-display">$0.00</div>
-            <div class="card-sub">Combined</div>
+            <div class="card-sub">All accounts combined</div>
           </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h2>🏦 My Bank Accounts</h2>
+            <button class="btn btn-sm btn-primary" onclick="openAddBankAccount()">+ Add Account</button>
+          </div>
+          <p style="font-size:12px;color:#7a8099;margin-bottom:12px">Add all your bank accounts here — checking, savings, money market, CDs, etc. You can have multiple accounts per bank.</p>
+          <div id="bank-accounts-list" class="bank-accounts-list"></div>
         </div>
 
         <div class="panel">
@@ -770,11 +779,7 @@
           </div>
           <div class="form-group">
             <label>Paid From</label>
-            <select id="unexp-account" class="input">
-              <option value="checking">Checking</option>
-              <option value="savings">Savings</option>
-              <option value="credit">Credit Card</option>
-            </select>
+            <select id="unexp-account" class="input"></select>
           </div>
         </div>
         <div class="form-group">
@@ -828,11 +833,7 @@
           </div>
           <div class="form-group">
             <label>Account</label>
-            <select id="tx-account" class="input">
-              <option value="checking">Checking</option>
-              <option value="savings">Savings</option>
-              <option value="credit">Credit Card</option>
-            </select>
+            <select id="tx-account" class="input"></select>
           </div>
         </div>
         <div class="form-group">
@@ -891,22 +892,73 @@
       </div>
     </div>
 
-    <!-- Edit Account Balance -->
-    <div id="modal-account" class="modal hidden">
+    <!-- Add/Edit Bank Account -->
+    <div id="modal-bank-account" class="modal hidden">
       <div class="modal-header">
-        <h3 id="modal-account-title">Edit Account</h3>
-        <button class="modal-close" onclick="closeModal('modal-account')">&#10005;</button>
+        <h3 id="modal-ba-title">Add Account</h3>
+        <button class="modal-close" onclick="closeModal('modal-bank-account')">&#10005;</button>
       </div>
       <div class="modal-body">
-        <input type="hidden" id="account-type" />
+        <input type="hidden" id="ba-edit-id" />
+        <div class="form-row">
+          <div class="form-group">
+            <label>Bank / Institution</label>
+            <select id="ba-bank-name" class="input" onchange="toggleCustomBank()">
+              <option value="Regions">Regions</option>
+              <option value="Navy Federal">Navy Federal</option>
+              <option value="USAA">USAA</option>
+              <option value="Chase">Chase</option>
+              <option value="Bank of America">Bank of America</option>
+              <option value="Wells Fargo">Wells Fargo</option>
+              <option value="Capital One">Capital One</option>
+              <option value="Citi">Citi</option>
+              <option value="TD Bank">TD Bank</option>
+              <option value="PNC">PNC</option>
+              <option value="US Bank">US Bank</option>
+              <option value="Truist">Truist</option>
+              <option value="SoFi">SoFi</option>
+              <option value="Ally">Ally</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Account Type</label>
+            <select id="ba-account-type" class="input">
+              <option value="checking">Checking</option>
+              <option value="savings">Savings</option>
+              <option value="money market">Money Market</option>
+              <option value="cd">CD</option>
+              <option value="investment">Investment</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" id="ba-custom-bank-group" style="display:none">
+          <label>Bank Name (custom)</label>
+          <input type="text" id="ba-custom-bank" class="input" placeholder="Enter bank or institution name" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nickname <span style="color:#7a8099;font-size:10px">optional</span></label>
+            <input type="text" id="ba-nickname" class="input" placeholder="e.g. Joint Savings, Personal Checking" />
+          </div>
+          <div class="form-group">
+            <label>Debit Card Network</label>
+            <select id="ba-card-network" class="input">
+              <option value="None">No Card</option>
+              <option value="Visa">Visa</option>
+              <option value="Mastercard">Mastercard</option>
+            </select>
+          </div>
+        </div>
         <div class="form-group">
           <label>Current Balance ($)</label>
-          <input type="number" id="account-balance" class="input" placeholder="0.00" step="0.01" min="0" />
+          <input type="number" id="ba-balance" class="input" placeholder="0.00" step="0.01" min="0" />
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-outline" onclick="closeModal('modal-account')">Cancel</button>
-        <button class="btn btn-primary" onclick="saveAccount()">Save</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-bank-account')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveBankAccount()">Save</button>
       </div>
     </div>
 
@@ -1001,10 +1053,7 @@
         </div>
         <div class="form-group">
           <label>Account</label>
-          <select id="goal-account" class="input">
-            <option value="savings">Savings</option>
-            <option value="checking">Checking</option>
-          </select>
+          <select id="goal-account" class="input"></select>
         </div>
       </div>
       <div class="modal-footer">

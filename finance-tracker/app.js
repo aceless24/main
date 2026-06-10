@@ -1,6 +1,6 @@
 /* ─── State ─────────────────────────────────────────────────────── */
 let state = {
-  accounts: { checking: 0, savings: 0 },
+  bankAccounts: [],      // { id, bankName, accountType, nickname, balance, cardNetwork }
   income: { monthly: 0, frequency: 'monthly' },
   additionalIncome: [],  // { id, name, amount, frequency }
   bills: [],             // FIXED bills: { id, name, amount, type:'essential'|'subscription', category, dueDay }
@@ -23,7 +23,20 @@ const STORAGE_KEY = 'finance_tracker_v1';
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) state = { ...state, ...JSON.parse(raw) };
+    if (raw) {
+      const saved = JSON.parse(raw);
+      // Migrate old accounts format { checking, savings } → bankAccounts array
+      if (saved.accounts && !saved.bankAccounts) {
+        const ch = typeof saved.accounts.checking === 'number' ? saved.accounts.checking : 0;
+        const sv = typeof saved.accounts.savings === 'number' ? saved.accounts.savings : 0;
+        saved.bankAccounts = [
+          { id: 'checking', bankName: 'My Bank', accountType: 'checking', nickname: 'Checking', balance: ch, cardNetwork: 'None' },
+          { id: 'savings', bankName: 'My Bank', accountType: 'savings', nickname: 'Savings', balance: sv, cardNetwork: 'None' }
+        ];
+      }
+      delete saved.accounts;
+      state = { ...state, ...saved };
+    }
   } catch {}
 }
 
@@ -147,7 +160,25 @@ function availableToSpend() {
 }
 
 function totalBalance() {
-  return state.accounts.checking + state.accounts.savings;
+  return (state.bankAccounts || []).reduce((s, a) => s + (a.balance || 0), 0);
+}
+
+function getAccountById(id) {
+  return (state.bankAccounts || []).find(a => a.id === id);
+}
+
+function accountDisplayName(a) {
+  if (!a) return 'Unknown';
+  return a.nickname ? `${a.bankName} — ${a.nickname}` : `${a.bankName} ${a.accountType}`;
+}
+
+function accountDisplayNameById(id) {
+  const a = getAccountById(id);
+  return a ? accountDisplayName(a) : id;
+}
+
+function totalSavingsBalance() {
+  return (state.bankAccounts || []).filter(a => a.accountType === 'savings' || a.accountType === 'money market' || a.accountType === 'cd').reduce((s, a) => s + (a.balance || 0), 0);
 }
 
 /* ─── Navigation ────────────────────────────────────────────────── */
@@ -289,7 +320,7 @@ function txHTML(tx) {
       <div class="tx-icon ${catClass}">${icon}</div>
       <div class="tx-info">
         <div class="tx-name">${tx.description}</div>
-        <div class="tx-meta">${tx.category} &middot; ${formatDate(tx.date)} &middot; ${tx.account}</div>
+        <div class="tx-meta">${tx.category} &middot; ${formatDate(tx.date)} &middot; ${tx.account === 'credit' ? 'Credit Card' : accountDisplayNameById(tx.account)}</div>
       </div>
     </div>
     <div class="tx-item-right">
@@ -313,36 +344,57 @@ function formatDate(dateStr) {
 }
 
 /* ─── Accounts ──────────────────────────────────────────────────── */
+const BANK_NAMES = ['Regions', 'Navy Federal', 'USAA', 'Chase', 'Bank of America', 'Wells Fargo', 'Capital One', 'Citi', 'TD Bank', 'PNC', 'US Bank', 'Truist', 'SoFi', 'Ally', 'Other'];
+const ACCOUNT_TYPES = ['checking', 'savings', 'money market', 'cd', 'investment', 'other'];
+const ACCT_TYPE_ICONS = { checking: '🏦', savings: '🐷', 'money market': '📈', cd: '🔒', investment: '📊', other: '💼' };
+
 function renderAccounts() {
-  document.getElementById('checking-display').textContent = fmt(state.accounts.checking);
-  document.getElementById('savings-display').textContent = fmt(state.accounts.savings);
+  const accounts = state.bankAccounts || [];
+
+  // Summary cards
+  const checkingTotal = accounts.filter(a => a.accountType === 'checking').reduce((s, a) => s + (a.balance || 0), 0);
+  const savingsTotal = accounts.filter(a => a.accountType !== 'checking').reduce((s, a) => s + (a.balance || 0), 0);
+  document.getElementById('checking-display').textContent = fmt(checkingTotal);
+  document.getElementById('savings-display').textContent = fmt(savingsTotal);
   document.getElementById('total-balance-display').textContent = fmt(totalBalance());
 
+  // Accounts list
+  const listEl = document.getElementById('bank-accounts-list');
+  if (listEl) {
+    listEl.innerHTML = accounts.length ? accounts.map(a => {
+      const typeIcon = ACCT_TYPE_ICONS[a.accountType] || '🏦';
+      const netBadge = a.cardNetwork && a.cardNetwork !== 'None'
+        ? `<span class="cc-network-badge cc-network-${a.cardNetwork.toLowerCase()}" style="font-size:10px">${a.cardNetwork}</span>` : '';
+      return `<div class="bank-acct-card">
+        <div class="bank-acct-header">
+          <div class="bank-acct-title">
+            ${netBadge}
+            <div>
+              <div class="bank-acct-name">${typeIcon} ${a.bankName}${a.nickname ? ' — ' + a.nickname : ''}</div>
+              <div class="bank-acct-type">${a.accountType.charAt(0).toUpperCase() + a.accountType.slice(1)} Account</div>
+            </div>
+          </div>
+          <div class="bank-acct-actions">
+            <button onclick="editBankAccount('${a.id}')" title="Edit">&#9998; Edit</button>
+            <button onclick="deleteBankAccount('${a.id}')" title="Delete">&#10005; Delete</button>
+          </div>
+        </div>
+        <div class="bank-acct-balance">${fmt(a.balance || 0)}</div>
+      </div>`;
+    }).join('') : '<div class="empty-state">No accounts added yet. Click "+ Add Account" to get started.</div>';
+  }
+
+  // Income display
   const wkly = state.income.frequency === 'weekly' ? state.income.monthly / 4.33 :
                state.income.frequency === 'biweekly' ? state.income.monthly / 2.17 :
                state.income.monthly;
 
   document.getElementById('income-display').innerHTML = `
-    <div class="income-item">
-      <div class="income-item-label">Primary Take-Home</div>
-      <div class="income-item-value">${fmt(state.income.monthly)}</div>
-    </div>
-    <div class="income-item">
-      <div class="income-item-label">Per Paycheck (${state.income.frequency})</div>
-      <div class="income-item-value">${fmt(wkly)}</div>
-    </div>
-    <div class="income-item">
-      <div class="income-item-label">Additional Income</div>
-      <div class="income-item-value">${fmt(totalAdditionalIncome())}</div>
-    </div>
-    <div class="income-item">
-      <div class="income-item-label">Total Monthly Income</div>
-      <div class="income-item-value" style="color:#4f8ef7">${fmt(totalMonthlyIncome())}</div>
-    </div>
-    <div class="income-item">
-      <div class="income-item-label">After Bills</div>
-      <div class="income-item-value">${fmt(Math.max(0, discretionaryBudget()))}</div>
-    </div>
+    <div class="income-item"><div class="income-item-label">Primary Take-Home</div><div class="income-item-value">${fmt(state.income.monthly)}</div></div>
+    <div class="income-item"><div class="income-item-label">Per Paycheck (${state.income.frequency})</div><div class="income-item-value">${fmt(wkly)}</div></div>
+    <div class="income-item"><div class="income-item-label">Additional Income</div><div class="income-item-value">${fmt(totalAdditionalIncome())}</div></div>
+    <div class="income-item"><div class="income-item-label">Total Monthly Income</div><div class="income-item-value" style="color:#4f8ef7">${fmt(totalMonthlyIncome())}</div></div>
+    <div class="income-item"><div class="income-item-label">After Bills</div><div class="income-item-value">${fmt(Math.max(0, discretionaryBudget()))}</div></div>
   `;
 
   // Additional income list
@@ -363,6 +415,71 @@ function renderAccounts() {
       </div>
     </div>
   `).join('') : '<div class="empty-state">No additional income sources added.</div>';
+}
+
+function openAddBankAccount() {
+  document.getElementById('ba-edit-id').value = '';
+  document.getElementById('ba-bank-name').value = 'Regions';
+  document.getElementById('ba-custom-bank').value = '';
+  document.getElementById('ba-custom-bank-group').style.display = 'none';
+  document.getElementById('ba-account-type').value = 'checking';
+  document.getElementById('ba-nickname').value = '';
+  document.getElementById('ba-balance').value = '';
+  document.getElementById('ba-card-network').value = 'None';
+  document.getElementById('modal-ba-title').textContent = 'Add Account';
+  openModal('modal-bank-account');
+}
+
+function editBankAccount(id) {
+  const a = getAccountById(id);
+  if (!a) return;
+  document.getElementById('ba-edit-id').value = a.id;
+  const isCustom = !BANK_NAMES.slice(0, -1).includes(a.bankName);
+  document.getElementById('ba-bank-name').value = isCustom ? 'Other' : a.bankName;
+  document.getElementById('ba-custom-bank').value = isCustom ? a.bankName : '';
+  document.getElementById('ba-custom-bank-group').style.display = isCustom ? 'block' : 'none';
+  document.getElementById('ba-account-type').value = a.accountType;
+  document.getElementById('ba-nickname').value = a.nickname || '';
+  document.getElementById('ba-balance').value = a.balance;
+  document.getElementById('ba-card-network').value = a.cardNetwork || 'None';
+  document.getElementById('modal-ba-title').textContent = 'Edit Account';
+  openModal('modal-bank-account');
+}
+
+function toggleCustomBank() {
+  const val = document.getElementById('ba-bank-name').value;
+  document.getElementById('ba-custom-bank-group').style.display = val === 'Other' ? 'block' : 'none';
+}
+
+function saveBankAccount() {
+  const bankNameRaw = document.getElementById('ba-bank-name').value;
+  const bankName = bankNameRaw === 'Other' ? (document.getElementById('ba-custom-bank').value.trim() || 'Other') : bankNameRaw;
+  const accountType = document.getElementById('ba-account-type').value;
+  const nickname = document.getElementById('ba-nickname').value.trim();
+  const balance = parseFloat(document.getElementById('ba-balance').value) || 0;
+  const cardNetwork = document.getElementById('ba-card-network').value;
+  const editId = document.getElementById('ba-edit-id').value;
+
+  if (!bankName) return alert('Please enter a bank name.');
+  if (!state.bankAccounts) state.bankAccounts = [];
+
+  const data = { bankName, accountType, nickname, balance, cardNetwork };
+  if (editId) {
+    const idx = state.bankAccounts.findIndex(a => a.id === editId);
+    if (idx >= 0) state.bankAccounts[idx] = { ...state.bankAccounts[idx], ...data };
+  } else {
+    state.bankAccounts.push({ id: uid(), ...data });
+  }
+  saveState();
+  closeModal('modal-bank-account');
+  renderSection(currentSection());
+}
+
+function deleteBankAccount(id) {
+  if (!confirm('Delete this account? This does not remove any transactions associated with it.')) return;
+  state.bankAccounts = (state.bankAccounts || []).filter(a => a.id !== id);
+  saveState();
+  renderSection(currentSection());
 }
 
 /* ─── Bills ─────────────────────────────────────────────────────── */
@@ -515,8 +632,7 @@ function renderBillChecklist() {
       <div class="bill-check-right">
         <span class="bill-check-amount ${isPaid ? 'amount-green' : 'amount-red'}">${fmt(item.amount)}</span>
         <select id="${selectId}" class="select-sm"${isPaid ? ' disabled' : ''}>
-          <option value="checking"${paidFrom === 'checking' ? ' selected' : ''}>Checking</option>
-          <option value="savings"${paidFrom === 'savings' ? ' selected' : ''}>Savings</option>
+          ${(state.bankAccounts || []).map(a => `<option value="${a.id}"${paidFrom === a.id ? ' selected' : ''}>${accountDisplayName(a)}</option>`).join('')}
         </select>
         ${isPaid ? `<span style="color:#2ec47a;font-size:11px">✓ ${paidFrom}</span>` : ''}
       </div>
@@ -532,18 +648,16 @@ function toggleBillPaid(type, refId, amount, isChecked, account) {
   const idx = payments.findIndex(p => p.type === type && p.refId === refId);
 
   if (isChecked) {
-    if (state.accounts[account] !== undefined) {
-      state.accounts[account] = Math.max(0, (state.accounts[account] || 0) - amount);
-    }
+    const acctIdx = (state.bankAccounts || []).findIndex(a => a.id === account);
+    if (acctIdx >= 0) state.bankAccounts[acctIdx].balance = Math.max(0, (state.bankAccounts[acctIdx].balance || 0) - amount);
     const entry = { type, refId, paid: true, account, paidDate: new Date().toISOString().slice(0, 10), amount };
     if (idx >= 0) payments[idx] = entry;
     else payments.push(entry);
   } else {
     if (idx >= 0 && payments[idx].paid) {
       const prevAcct = payments[idx].account;
-      if (state.accounts[prevAcct] !== undefined) {
-        state.accounts[prevAcct] = (state.accounts[prevAcct] || 0) + payments[idx].amount;
-      }
+      const acctIdx = (state.bankAccounts || []).findIndex(a => a.id === prevAcct);
+      if (acctIdx >= 0) state.bankAccounts[acctIdx].balance = (state.bankAccounts[acctIdx].balance || 0) + payments[idx].amount;
       payments[idx] = { ...payments[idx], paid: false };
     }
   }
@@ -556,8 +670,9 @@ function renderSavingsAlloc() {
   const el = document.getElementById('savings-alloc-input');
   if (!el) return;
   el.value = savingsAlloc || '';
-  document.getElementById('savings-alloc-balance').textContent = fmt(state.accounts.savings);
-  document.getElementById('savings-alloc-projected').textContent = fmt(state.accounts.savings + savingsAlloc);
+  const savBal = totalSavingsBalance();
+  document.getElementById('savings-alloc-balance').textContent = fmt(savBal);
+  document.getElementById('savings-alloc-projected').textContent = fmt(savBal + savingsAlloc);
   document.getElementById('savings-alloc-remaining').textContent = fmt(Math.max(0, discretionaryBudget()));
 }
 
@@ -949,8 +1064,9 @@ function renderOutlook() {
   const avgSpending = countedMonths > 0 ? totalSpent / countedMonths : disc * 0.7;
 
   // Build projection
-  let checkingBalance = state.accounts.checking;
-  let savingsBalance = state.accounts.savings;
+  const accounts = state.bankAccounts || [];
+  let checkingBalance = accounts.filter(a => a.accountType === 'checking').reduce((s, a) => s + (a.balance || 0), 0);
+  let savingsBalance = accounts.filter(a => a.accountType !== 'checking').reduce((s, a) => s + (a.balance || 0), 0);
   const rows = [];
   const labels = [];
   const checkingData = [];
@@ -1093,7 +1209,7 @@ function renderGoals() {
         <div class="goal-header">
           <div>
             <div class="goal-name">${g.name}</div>
-            <div class="goal-meta">${g.account} account &middot; ${metaSub}${g.monthlyContrib > 0 ? ' &middot; ' + fmt(g.monthlyContrib) + '/mo' : ''}</div>
+            <div class="goal-meta">${accountDisplayNameById(g.account)} &middot; ${metaSub}${g.monthlyContrib > 0 ? ' &middot; ' + fmt(g.monthlyContrib) + '/mo' : ''}</div>
           </div>
           <div class="goal-actions">
             <button onclick="editGoal('${g.id}')" title="Edit">&#9998;</button>
@@ -1163,7 +1279,8 @@ function openAddTransaction() {
   document.getElementById('tx-amount').value = '';
   document.getElementById('tx-date').value = new Date().toISOString().slice(0, 10);
   document.getElementById('tx-category').value = 'Food & Dining';
-  document.getElementById('tx-account').value = 'checking';
+  const firstAcct = (state.bankAccounts || [])[0];
+  populateAccountSelect('tx-account', firstAcct ? firstAcct.id : '', true);
   document.getElementById('tx-note').value = '';
   openModal('modal-transaction');
 }
@@ -1177,7 +1294,7 @@ function editTransaction(id) {
   document.getElementById('tx-amount').value = tx.amount;
   document.getElementById('tx-date').value = tx.date;
   document.getElementById('tx-category').value = tx.category;
-  document.getElementById('tx-account').value = tx.account;
+  populateAccountSelect('tx-account', tx.account, true);
   document.getElementById('tx-note').value = tx.note || '';
   openModal('modal-transaction');
 }
@@ -1266,23 +1383,8 @@ function deleteBill(id) {
   renderSection(currentSection());
 }
 
-// Account
-function openEditAccount(type) {
-  document.getElementById('modal-account-title').textContent = `Edit ${type === 'checking' ? 'Checking' : 'Savings'} Account`;
-  document.getElementById('account-type').value = type;
-  document.getElementById('account-balance').value = state.accounts[type];
-  openModal('modal-account');
-}
-
-function saveAccount() {
-  const type = document.getElementById('account-type').value;
-  const balance = parseFloat(document.getElementById('account-balance').value);
-  if (isNaN(balance) || balance < 0) return alert('Please enter a valid balance.');
-  state.accounts[type] = balance;
-  saveState();
-  closeModal('modal-account');
-  renderSection(currentSection());
-}
+// Account (legacy stub — replaced by bank account modal)
+function openEditAccount(type) { openAddBankAccount(); }
 
 // Income
 function openEditIncome() {
@@ -1359,7 +1461,8 @@ function openAddGoal() {
   document.getElementById('goal-target').value = '';
   document.getElementById('goal-saved').value = '';
   document.getElementById('goal-monthly-contrib').value = '';
-  document.getElementById('goal-account').value = 'savings';
+  const firstSavings = (state.bankAccounts || []).find(a => a.accountType === 'savings') || (state.bankAccounts || [])[0];
+  populateAccountSelect('goal-account', firstSavings ? firstSavings.id : '');
   document.getElementById('goal-date').value = '';
   openModal('modal-goal');
 }
@@ -1373,7 +1476,7 @@ function editGoal(id) {
   document.getElementById('goal-target').value = g.target;
   document.getElementById('goal-saved').value = g.saved;
   document.getElementById('goal-monthly-contrib').value = g.monthlyContrib || '';
-  document.getElementById('goal-account').value = g.account;
+  populateAccountSelect('goal-account', g.account);
   document.getElementById('goal-date').value = g.targetDate || '';
   openModal('modal-goal');
 }
@@ -1827,7 +1930,8 @@ function openAddUnexpected() {
   document.getElementById('unexp-amount').value = '';
   document.getElementById('unexp-date').value = new Date().toISOString().slice(0, 10);
   document.getElementById('unexp-category').value = 'Medical';
-  document.getElementById('unexp-account').value = 'checking';
+  const firstAcct = (state.bankAccounts || [])[0];
+  populateAccountSelect('unexp-account', firstAcct ? firstAcct.id : '', true);
   document.getElementById('unexp-note').value = '';
   openModal('modal-unexpected');
 }
@@ -1841,7 +1945,7 @@ function editUnexpected(id) {
   document.getElementById('unexp-amount').value = u.amount;
   document.getElementById('unexp-date').value = u.date;
   document.getElementById('unexp-category').value = u.category;
-  document.getElementById('unexp-account').value = u.account;
+  populateAccountSelect('unexp-account', u.account, true);
   document.getElementById('unexp-note').value = u.note || '';
   openModal('modal-unexpected');
 }
@@ -1877,6 +1981,16 @@ function deleteUnexpected(id) {
 }
 
 /* ─── Utilities ─────────────────────────────────────────────────── */
+function populateAccountSelect(selectId, selectedId, includeCreditOption) {
+  const el = document.getElementById(selectId);
+  if (!el) return;
+  const accounts = state.bankAccounts || [];
+  el.innerHTML = accounts.map(a => `<option value="${a.id}"${selectedId === a.id ? ' selected' : ''}>${accountDisplayName(a)}</option>`).join('');
+  if (includeCreditOption) {
+    el.innerHTML += `<option value="credit"${selectedId === 'credit' ? ' selected' : ''}>Credit Card</option>`;
+  }
+}
+
 function currentSection() {
   const active = document.querySelector('.section.active');
   return active ? active.id.replace('section-', '') : 'dashboard';
