@@ -1,7 +1,7 @@
 /* ─── State ─────────────────────────────────────────────────────── */
 let state = {
   bankAccounts: [],      // { id, bankName, accountType, nickname, balance, cardNetwork }
-  income: { monthly: 0, frequency: 'monthly' },
+  income: { monthly: 0, frequency: 'monthly', paycheckStartDate: '' },
   additionalIncome: [],  // { id, name, amount, frequency }
   bills: [],             // FIXED bills: { id, name, amount, type:'essential'|'subscription', category, dueDay }
   variableBills: [],     // Variable bill definitions: { id, name, category, dueDay }
@@ -15,6 +15,7 @@ let state = {
   goals: [],             // { id, name, target, saved, targetDate, account }
   budget: { monthlySpendingTarget: 0, monthlySavingsTarget: 0 },
   billPayments: {},      // { [YYYY-MM]: [{ type, refId, paid, account, paidDate, amount }] }
+  deposits: [],          // { id, accountId, amount, type, date, description, cleared, clearedDate }
   minBalanceTargets: {}, // { [accountId]: number } — minimum balance to keep in each account
   lastSeenMonth: ''      // used for new-month detection
 };
@@ -161,6 +162,37 @@ function spentThisMonth() {
   return txTotal + unexpTotal;
 }
 
+function currentPaycheckPeriodStart() {
+  const freq = state.income.frequency;
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  if (freq === 'monthly') {
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  }
+  const refDateStr = state.income.paycheckStartDate;
+  const refDate = refDateStr ? new Date(refDateStr) : new Date(today.getFullYear(), today.getMonth(), 1);
+  refDate.setHours(0,0,0,0);
+  const periodDays = freq === 'weekly' ? 7 : freq === 'biweekly' ? 14 : 15;
+  const msPerDay = 86400000;
+  const daysDiff = Math.floor((today - refDate) / msPerDay);
+  const periodsElapsed = Math.floor(daysDiff / periodDays);
+  const start = new Date(refDate.getTime() + periodsElapsed * periodDays * msPerDay);
+  return start;
+}
+
+function spentThisPaycheckPeriod() {
+  const start = currentPaycheckPeriodStart();
+  const startStr = start.toISOString().slice(0, 10);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const txTotal = state.transactions
+    .filter(t => t.date >= startStr && t.date <= todayStr)
+    .reduce((s, t) => s + t.amount, 0);
+  const unexpTotal = (state.unexpected || [])
+    .filter(u => u.date >= startStr && u.date <= todayStr)
+    .reduce((s, u) => s + u.amount, 0);
+  return txTotal + unexpTotal;
+}
+
 function availableToSpend() {
   return discretionaryBudget() - spentThisMonth();
 }
@@ -211,6 +243,7 @@ function totalSavingsBalance() {
 
 /* ─── Navigation ────────────────────────────────────────────────── */
 function navigate(section) {
+  closeNav();
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
 
@@ -221,7 +254,7 @@ function navigate(section) {
   if (link) link.classList.add('active');
 
   document.getElementById('section-title').textContent = {
-    dashboard: 'Dashboard',
+    dashboard: 'Home',
     accounts: 'Accounts',
     bills: 'Bills',
     creditcards: 'Credit Cards',
@@ -234,6 +267,17 @@ function navigate(section) {
   }[section] || section;
 
   renderSection(section);
+}
+
+function openNav() {
+  document.getElementById('nav-drawer').classList.add('open');
+  document.getElementById('nav-overlay').classList.add('open');
+}
+function closeNav() {
+  const drawer = document.getElementById('nav-drawer');
+  const overlay = document.getElementById('nav-overlay');
+  if (drawer) drawer.classList.remove('open');
+  if (overlay) overlay.classList.remove('open');
 }
 
 function renderSection(section) {
@@ -370,6 +414,7 @@ function txHTML(tx) {
       </div>
     </div>
     <div class="tx-item-right">
+      <button class="tx-cleared-btn ${tx.cleared ? 'cleared' : ''}" onclick="toggleTransactionCleared('${tx.id}')" title="${tx.cleared ? 'Cleared' : 'Mark as cleared'}">${tx.cleared ? '&#10003;' : ''}</button>
       <span class="tx-amount amount-red">-${fmt(tx.amount)}</span>
       <div class="tx-actions">
         <button onclick="editTransaction('${tx.id}')" title="Edit">&#9998;</button>
@@ -426,6 +471,19 @@ function renderAccounts() {
           </div>
         </div>
         <div class="bank-acct-balance">${fmt(a.balance || 0)}</div>
+        ${(() => {
+          const pendingTxAmount = state.transactions
+            .filter(t => t.account === a.id && !t.cleared)
+            .reduce((s, t) => s + t.amount, 0);
+          const pendingDepAmount = (state.deposits || [])
+            .filter(d => d.accountId === a.id && !d.cleared)
+            .reduce((s, d) => s + d.amount, 0);
+          const clearedBalance = (a.balance || 0) + pendingTxAmount - pendingDepAmount;
+          return `<div class="bank-acct-balance-sub">
+            <span>Cleared balance: ${fmt(Math.max(0, clearedBalance))}</span>
+            ${pendingTxAmount > 0 || pendingDepAmount > 0 ? `<span class="pending-badge">${pendingTxAmount > 0 ? fmt(pendingTxAmount) + ' pending out' : ''}${pendingDepAmount > 0 ? (pendingTxAmount > 0 ? ' &middot; ' : '') + fmt(pendingDepAmount) + ' pending in' : ''}</span>` : ''}
+          </div>`;
+        })()}
       </div>`;
     }).join('') : '<div class="empty-state">No accounts added yet. Click "+ Add Account" to get started.</div>';
   }
@@ -463,6 +521,37 @@ function renderAccounts() {
   `).join('') : '<div class="empty-state">No additional income sources added.</div>';
 
   renderIncomeSpendingBreakdown();
+
+  // Deposits list
+  const depList = document.getElementById('deposits-list');
+  if (depList) {
+    const deposits = state.deposits || [];
+    const DEP_ICONS = { direct_deposit: '&#127963;', cash: '&#128181;', check: '&#128221;', other: '&#128176;' };
+    const DEP_LABELS = { direct_deposit: 'Direct Deposit', cash: 'Cash', check: 'Check', other: 'Other' };
+    depList.innerHTML = deposits.length ? [...deposits].sort((a,b) => b.date.localeCompare(a.date)).map(d => `
+      <div class="deposit-item${d.cleared ? ' deposit-cleared' : ''}">
+        <div class="deposit-item-left">
+          <div class="deposit-icon">${DEP_ICONS[d.type] || '&#128176;'}</div>
+          <div>
+            <div class="deposit-name">${d.description || DEP_LABELS[d.type]}</div>
+            <div class="deposit-meta">${DEP_LABELS[d.type]} &middot; ${accountDisplayNameById(d.accountId)} &middot; ${formatDate(d.date)}</div>
+          </div>
+        </div>
+        <div class="deposit-right">
+          <div class="deposit-amount">+${fmt(d.amount)}</div>
+          ${d.type === 'check' ? `
+            <label class="deposit-cleared-badge ${d.cleared ? 'cleared' : 'pending'}" style="cursor:pointer;display:flex;align-items:center;gap:4px">
+              <input type="checkbox" ${d.cleared ? 'checked' : ''} onchange="toggleDepositCleared('${d.id}')" style="cursor:pointer" />
+              ${d.cleared ? 'Cleared' : 'Pending'}
+            </label>
+          ` : `<span class="deposit-cleared-badge cleared">Cleared</span>`}
+          <div class="deposit-actions">
+            <button onclick="deleteDeposit('${d.id}')">&#10005;</button>
+          </div>
+        </div>
+      </div>
+    `).join('') : '<div class="empty-state">No deposits recorded yet.</div>';
+  }
 }
 
 function renderIncomeSpendingBreakdown() {
@@ -477,7 +566,9 @@ function renderIncomeSpendingBreakdown() {
 
   const totalObligations = totalBills() + totalCCMonthlyCommitment()
     + Math.max(state.budget?.monthlySavingsTarget || 0, state.savingsAllocation || 0);
-  const spent = spentThisMonth();
+  const spent = spentThisPaycheckPeriod();
+  const periodStart = currentPaycheckPeriodStart();
+  const periodLabel = periodStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
   // Build list of all income sources
   const sources = [
@@ -523,7 +614,7 @@ function renderIncomeSpendingBreakdown() {
           </div>
           <div class="income-breakdown-stat">
             <span class="ibs-dot" style="background:#f97316"></span>
-            <span>Spending This Month</span>
+            <span>Spending Since ${periodLabel}</span>
             <span>${fmt(spendShare)}</span>
           </div>
           <div class="income-breakdown-stat">
@@ -1329,7 +1420,7 @@ function renderOutlook() {
   // Summary
   const lastRow = rows[rows.length - 1];
   const firstRow = rows[0];
-  const totalGrowth = lastRow.total - (state.accounts.checking + state.accounts.savings);
+  const totalGrowth = lastRow.total - totalBalance();
   const totalSavingsAdded = rows.reduce((s, r) => s + r.savings, 0);
 
   document.getElementById('outlook-summary').innerHTML = `
@@ -1506,7 +1597,7 @@ function saveTransaction() {
     const idx = state.transactions.findIndex(t => t.id === editId);
     if (idx >= 0) state.transactions[idx] = { ...state.transactions[idx], description: desc, amount, date, category, account, note };
   } else {
-    state.transactions.push({ id: uid(), description: desc, amount, date, category, account, note });
+    state.transactions.push({ id: uid(), description: desc, amount, date, category, account, note, cleared: false });
   }
 
   saveState();
@@ -1517,6 +1608,19 @@ function saveTransaction() {
 function deleteTransaction(id) {
   if (!confirm('Delete this transaction?')) return;
   state.transactions = state.transactions.filter(t => t.id !== id);
+  saveState();
+  renderSection(currentSection());
+}
+
+function toggleTransactionCleared(id) {
+  const idx = state.transactions.findIndex(t => t.id === id);
+  if (idx < 0) return;
+  state.transactions[idx].cleared = !state.transactions[idx].cleared;
+  if (state.transactions[idx].cleared) {
+    state.transactions[idx].clearedDate = new Date().toISOString().slice(0, 10);
+  } else {
+    delete state.transactions[idx].clearedDate;
+  }
   saveState();
   renderSection(currentSection());
 }
@@ -1582,6 +1686,8 @@ function openEditAccount(type) { openAddBankAccount(); }
 function openEditIncome() {
   document.getElementById('income-amount').value = state.income.monthly;
   document.getElementById('income-frequency').value = state.income.frequency;
+  const psEl = document.getElementById('income-paycheck-start');
+  if (psEl) psEl.value = state.income.paycheckStartDate || '';
   openModal('modal-income');
 }
 
@@ -1589,7 +1695,8 @@ function saveIncome() {
   const amount = parseFloat(document.getElementById('income-amount').value);
   const frequency = document.getElementById('income-frequency').value;
   if (isNaN(amount) || amount < 0) return alert('Please enter a valid income amount.');
-  state.income = { monthly: amount, frequency };
+  const paycheckStartDate = document.getElementById('income-paycheck-start') ? document.getElementById('income-paycheck-start').value : '';
+  state.income = { monthly: amount, frequency, paycheckStartDate };
   saveState();
   closeModal('modal-income');
   renderSection(currentSection());
@@ -2173,6 +2280,85 @@ function deleteUnexpected(id) {
   renderSection(currentSection());
 }
 
+/* ─── Deposits ──────────────────────────────────────────────────── */
+function openAddDeposit() {
+  document.getElementById('modal-deposit-title').textContent = 'Add Deposit';
+  document.getElementById('dep-edit-id').value = '';
+  document.getElementById('dep-amount').value = '';
+  document.getElementById('dep-date').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('dep-type').value = 'direct_deposit';
+  document.getElementById('dep-description').value = '';
+  document.getElementById('dep-cleared').checked = false;
+  document.getElementById('dep-check-cleared-group').style.display = 'none';
+  const firstAcct = (state.bankAccounts || [])[0];
+  populateAccountSelect('dep-account', firstAcct ? firstAcct.id : '', false);
+  openModal('modal-deposit');
+}
+
+function handleDepositTypeChange() {
+  const type = document.getElementById('dep-type').value;
+  document.getElementById('dep-check-cleared-group').style.display = type === 'check' ? '' : 'none';
+}
+
+function saveDeposit() {
+  const accountId = document.getElementById('dep-account').value;
+  const amount = parseFloat(document.getElementById('dep-amount').value);
+  const date = document.getElementById('dep-date').value;
+  const type = document.getElementById('dep-type').value;
+  const description = document.getElementById('dep-description').value.trim();
+  const cleared = type === 'check' ? document.getElementById('dep-cleared').checked : true;
+  const editId = document.getElementById('dep-edit-id').value;
+
+  if (!accountId || isNaN(amount) || amount <= 0 || !date) return alert('Please fill in all required fields.');
+
+  if (editId) {
+    const idx = (state.deposits || []).findIndex(d => d.id === editId);
+    if (idx >= 0) {
+      const old = state.deposits[idx];
+      // Reverse old deposit from account
+      const oldAcctIdx = (state.bankAccounts || []).findIndex(a => a.id === old.accountId);
+      if (oldAcctIdx >= 0) state.bankAccounts[oldAcctIdx].balance -= old.amount;
+      state.deposits[idx] = { ...old, accountId, amount, date, type, description, cleared, clearedDate: cleared ? new Date().toISOString().slice(0, 10) : '' };
+    }
+  } else {
+    if (!state.deposits) state.deposits = [];
+    state.deposits.push({ id: uid(), accountId, amount, date, type, description, cleared, clearedDate: cleared ? new Date().toISOString().slice(0, 10) : '' });
+  }
+
+  // Add deposit amount to account balance
+  const acctIdx = (state.bankAccounts || []).findIndex(a => a.id === accountId);
+  if (acctIdx >= 0) state.bankAccounts[acctIdx].balance += amount;
+
+  saveState();
+  closeModal('modal-deposit');
+  renderSection(currentSection());
+}
+
+function deleteDeposit(id) {
+  if (!confirm('Delete this deposit?')) return;
+  const dep = (state.deposits || []).find(d => d.id === id);
+  if (dep) {
+    const acctIdx = (state.bankAccounts || []).findIndex(a => a.id === dep.accountId);
+    if (acctIdx >= 0) state.bankAccounts[acctIdx].balance -= dep.amount;
+  }
+  state.deposits = (state.deposits || []).filter(d => d.id !== id);
+  saveState();
+  renderSection(currentSection());
+}
+
+function toggleDepositCleared(id) {
+  const idx = (state.deposits || []).findIndex(d => d.id === id);
+  if (idx < 0) return;
+  state.deposits[idx].cleared = !state.deposits[idx].cleared;
+  if (state.deposits[idx].cleared) {
+    state.deposits[idx].clearedDate = new Date().toISOString().slice(0, 10);
+  } else {
+    delete state.deposits[idx].clearedDate;
+  }
+  saveState();
+  renderSection(currentSection());
+}
+
 /* ─── Settings / Theme ──────────────────────────────────────────── */
 const THEME_KEY = 'finance_tracker_theme';
 const THEMES = {
@@ -2277,6 +2463,23 @@ function currentSection() {
 /* ─── Init ──────────────────────────────────────────────────────── */
 function init() {
   initTheme();
+  // Loading screen
+  const loadingBar = document.getElementById('loading-bar');
+  const loadingScreen = document.getElementById('loading-screen');
+  let progress = 0;
+  const loadInterval = setInterval(() => {
+    progress += Math.random() * 15 + 5;
+    if (progress >= 100) {
+      progress = 100;
+      clearInterval(loadInterval);
+      if (loadingBar) loadingBar.style.width = '100%';
+      setTimeout(() => {
+        if (loadingScreen) loadingScreen.classList.add('hidden');
+      }, 400);
+    }
+    if (loadingBar) loadingBar.style.width = progress + '%';
+  }, 80);
+
   loadState();
 
   // Month label

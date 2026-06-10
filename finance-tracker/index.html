@@ -3,66 +3,66 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Finance Tracker</title>
+  <title>TrackWise</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
-  <div class="app">
-    <!-- Sidebar Nav -->
-    <nav class="sidebar">
-      <div class="sidebar-header">
-        <span class="logo">&#9654; FinanceTracker</span>
+  <div id="loading-screen" class="loading-screen">
+    <div class="loading-content">
+      <div class="loading-logo-wrap">
+        <div class="loading-logo-icon">TW</div>
+        <div class="loading-logo-text">TrackWise</div>
       </div>
-      <ul class="nav-links">
-        <li><a href="#" class="nav-link active" data-section="dashboard">&#9632; Dashboard</a></li>
-        <li><a href="#" class="nav-link" data-section="accounts">&#9632; Accounts</a></li>
-        <li><a href="#" class="nav-link" data-section="bills">&#9632; Bills</a></li>
-        <li><a href="#" class="nav-link" data-section="creditcards">&#9632; Credit Cards</a></li>
-        <li><a href="#" class="nav-link" data-section="spending">&#9632; Spending</a></li>
-        <li><a href="#" class="nav-link" data-section="budget">&#9632; Budget</a></li>
-        <li><a href="#" class="nav-link" data-section="outlook">&#9632; Outlook</a></li>
-        <li><a href="#" class="nav-link" data-section="unexpected">&#9632; Unexpected</a></li>
-        <li><a href="#" class="nav-link" data-section="goals">&#9632; Savings Goals</a></li>
-        <li><a href="#" class="nav-link" data-section="settings">&#9632; Settings</a></li>
-      </ul>
-    </nav>
+      <div class="loading-tagline">Smart money. Clear future.</div>
+      <div class="loading-bar-wrap">
+        <div id="loading-bar" class="loading-bar"></div>
+      </div>
+      <div class="loading-version">v1.1.0</div>
+    </div>
+  </div>
 
+  <div class="app">
     <!-- Main Content -->
     <main class="main-content">
       <header class="top-bar">
-        <h1 id="section-title">Dashboard</h1>
+        <div class="top-bar-left">
+          <div class="app-wordmark">TrackWise</div>
+          <h1 id="section-title" class="top-bar-title">Home</h1>
+        </div>
         <div class="top-bar-right">
           <span id="current-month-label"></span>
           <button class="btn btn-primary" id="add-transaction-btn">+ Add Transaction</button>
+          <button class="nav-toggle-btn" id="nav-toggle-btn" onclick="openNav()">
+            <span></span><span></span><span></span>
+          </button>
         </div>
       </header>
 
       <!-- DASHBOARD -->
       <section id="section-dashboard" class="section active">
-        <div class="cards-row">
-          <div class="card card-blue">
-            <div class="card-label">Total Balance</div>
-            <div class="card-value" id="dash-total-balance">$0.00</div>
-            <div class="card-sub">Checking + Savings</div>
-          </div>
-          <div class="card card-green">
-            <div class="card-label">Available to Spend</div>
-            <div class="card-value" id="dash-available">$0.00</div>
-            <div class="card-sub">After all bills</div>
-            <div id="dash-balance-constraint-note" class="card-constraint-note" style="display:none"></div>
-          </div>
-          <div class="card card-orange">
-            <div class="card-label">Monthly Budget Left</div>
-            <div class="card-value" id="dash-monthly-left">$0.00</div>
-            <div class="card-sub">Remaining this month</div>
-          </div>
-          <div class="card card-purple">
-            <div class="card-label">Weekly Budget</div>
-            <div class="card-value" id="dash-weekly">$0.00</div>
-            <div class="card-sub">Per week to stay on track</div>
+        <div class="home-hero">
+          <div class="hero-primary-card">
+            <div class="hero-label">Total Balance</div>
+            <div class="hero-value" id="dash-total-balance">$0.00</div>
+            <div class="hero-sub">All accounts combined</div>
+            <div class="hero-chips">
+              <div class="hero-chip hero-chip-green">
+                <span>Available</span>
+                <strong id="dash-available">$0.00</strong>
+                <div id="dash-balance-constraint-note" class="card-constraint-note" style="display:none"></div>
+              </div>
+              <div class="hero-chip hero-chip-orange">
+                <span>This Month Left</span>
+                <strong id="dash-monthly-left">$0.00</strong>
+              </div>
+              <div class="hero-chip hero-chip-purple">
+                <span>Weekly Budget</span>
+                <strong id="dash-weekly">$0.00</strong>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -177,6 +177,15 @@
             <button class="btn btn-sm btn-primary" onclick="openAddAdditionalIncome()">+ Add Source</button>
           </div>
           <div id="additional-income-list" class="bills-list"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h2>&#128176; Deposits</h2>
+            <button class="btn btn-sm btn-primary" onclick="openAddDeposit()">+ Add Deposit</button>
+          </div>
+          <div class="panel-desc">Record incoming deposits. Mark checks as cleared once they post to your account.</div>
+          <div id="deposits-list" class="deposits-list"></div>
         </div>
 
         <div class="panel">
@@ -999,6 +1008,10 @@
             <option value="weekly">Weekly</option>
           </select>
         </div>
+        <div class="form-group">
+          <label>Paycheck Start Date <span style="color:#7a8099;font-size:10px">optional &#8212; for period tracking</span></label>
+          <input type="date" id="income-paycheck-start" class="input" />
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeModal('modal-income')">Cancel</button>
@@ -1079,6 +1092,54 @@
         <button class="btn btn-primary" onclick="saveGoal()">Save</button>
       </div>
     </div>
+
+    <!-- Add/Edit Deposit -->
+    <div id="modal-deposit" class="modal hidden">
+      <div class="modal-header">
+        <h3 id="modal-deposit-title">Add Deposit</h3>
+        <button class="modal-close" onclick="closeModal('modal-deposit')">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Account</label>
+          <select id="dep-account" class="input"></select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Amount</label>
+            <div class="input-with-prefix"><span class="input-prefix">$</span><input type="number" id="dep-amount" class="input" placeholder="0.00" step="0.01" min="0.01" /></div>
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="dep-date" class="input" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <select id="dep-type" class="input" onchange="handleDepositTypeChange()">
+            <option value="direct_deposit">Direct Deposit</option>
+            <option value="cash">Cash</option>
+            <option value="check">Check</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" id="dep-description" class="input" placeholder="e.g. Paycheck, Rent deposit" />
+        </div>
+        <div id="dep-check-cleared-group" class="form-group" style="display:none">
+          <label class="checkbox-label">
+            <input type="checkbox" id="dep-cleared" />
+            Check has cleared the account
+          </label>
+        </div>
+        <input type="hidden" id="dep-edit-id" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-deposit')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveDeposit()">Save Deposit</button>
+      </div>
+    </div>
   </div>
 
       <!-- SETTINGS -->
@@ -1088,7 +1149,7 @@
             <h2>🎨 Appearance</h2>
             <span class="badge" id="settings-theme-current">Light</span>
           </div>
-          <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px">Choose how Finance Tracker looks. "System" automatically matches your Windows dark/light mode setting.</p>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px">Choose how TrackWise looks. "System" automatically matches your Windows dark/light mode setting.</p>
           <div id="settings-theme-options" class="theme-options">
             <button id="theme-btn-light" class="theme-btn" onclick="setTheme('light')">
               <div class="theme-preview theme-preview-light">
@@ -1126,13 +1187,35 @@
         <div class="panel" style="max-width:640px">
           <div class="panel-header"><h2>ℹ️ About</h2></div>
           <div style="font-size:13px;color:var(--text-muted);line-height:1.8">
-            <div><strong style="color:var(--text)">Finance Tracker</strong> — Personal desktop finance app</div>
-            <div>Version 1.0.0</div>
+            <div><strong style="color:var(--text)">TrackWise</strong> — Personal desktop finance app</div>
+            <div>Version 1.1.0</div>
             <div style="margin-top:8px">All your data is stored locally on this device. Nothing is sent to external servers.</div>
           </div>
         </div>
       </section>
     </main>
+    <!-- Nav Overlay -->
+    <div id="nav-overlay" class="nav-overlay" onclick="closeNav()"></div>
+    <!-- Nav Drawer -->
+    <nav id="nav-drawer" class="nav-drawer">
+      <div class="nav-drawer-header">
+        <div class="nav-drawer-logo">TrackWise</div>
+        <button class="nav-drawer-close" onclick="closeNav()">&#10005;</button>
+      </div>
+      <ul class="nav-links">
+        <li><a href="#" class="nav-link active" data-section="dashboard">&#127968; Home</a></li>
+        <li><a href="#" class="nav-link" data-section="accounts">&#127974; Accounts</a></li>
+        <li><a href="#" class="nav-link" data-section="bills">&#128203; Bills</a></li>
+        <li><a href="#" class="nav-link" data-section="creditcards">&#128179; Credit Cards</a></li>
+        <li><a href="#" class="nav-link" data-section="spending">&#128184; Spending</a></li>
+        <li><a href="#" class="nav-link" data-section="budget">&#128202; Budget</a></li>
+        <li><a href="#" class="nav-link" data-section="outlook">&#128301; Outlook</a></li>
+        <li><a href="#" class="nav-link" data-section="unexpected">&#9888; Unexpected</a></li>
+        <li><a href="#" class="nav-link" data-section="goals">&#127919; Savings Goals</a></li>
+        <li><a href="#" class="nav-link" data-section="settings">&#9881; Settings</a></li>
+      </ul>
+      <div class="nav-drawer-footer">v1.1.0</div>
+    </nav>
   </div>
 
   <script src="app.js"></script>
