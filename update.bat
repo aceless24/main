@@ -26,6 +26,14 @@ if %errorlevel% neq 0 (
   goto :fail
 )
 
+:: ── Close Finance Tracker if it is running ───────────────────────────
+tasklist /FI "IMAGENAME eq Finance Tracker.exe" 2>nul | find /I "Finance Tracker.exe" >nul
+if %errorlevel% equ 0 (
+  echo  Finance Tracker is running — closing it now...
+  taskkill /IM "Finance Tracker.exe" /F >nul 2>&1
+  timeout /t 2 /nobreak >nul
+)
+
 :: ── Move to the repo root (same folder as this script) ───────────────
 cd /d "%~dp0"
 
