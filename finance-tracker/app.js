@@ -153,7 +153,12 @@ function weeklyBudget() {
 }
 
 function spentThisMonth() {
-  return getTransactionsForMonth(currentMonthKey()).reduce((s, t) => s + t.amount, 0);
+  const key = currentMonthKey();
+  const txTotal = getTransactionsForMonth(key).reduce((s, t) => s + t.amount, 0);
+  const unexpTotal = (state.unexpected || [])
+    .filter(u => u.date.startsWith(key))
+    .reduce((s, u) => s + u.amount, 0);
+  return txTotal + unexpTotal;
 }
 
 function availableToSpend() {
@@ -1074,6 +1079,11 @@ function renderBudget() {
   const txs = getTransactionsForMonth(key);
   const catTotals = {};
   txs.forEach(t => { catTotals[t.category] = (catTotals[t.category] || 0) + t.amount; });
+  // Include unexpected expenses in category breakdown
+  (state.unexpected || []).filter(u => u.date.startsWith(key)).forEach(u => {
+    const cat = u.category || 'Unexpected';
+    catTotals[cat] = (catTotals[cat] || 0) + u.amount;
+  });
 
   const cats = Object.keys(catTotals);
   const datasets = [{
@@ -1163,7 +1173,9 @@ function renderOutlook() {
   for (let i = 1; i <= 3; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    const spent = getTransactionsForMonth(key).reduce((s, t) => s + t.amount, 0);
+    const txSpent = getTransactionsForMonth(key).reduce((s, t) => s + t.amount, 0);
+    const unexpSpent = (state.unexpected || []).filter(u => u.date.startsWith(key)).reduce((s, u) => s + u.amount, 0);
+    const spent = txSpent + unexpSpent;
     if (spent > 0) { totalSpent += spent; countedMonths++; }
   }
   const avgSpending = countedMonths > 0 ? totalSpent / countedMonths : disc * 0.7;
