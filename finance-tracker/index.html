@@ -65,25 +65,31 @@
       <section id="section-dashboard" class="section active">
         <div class="home-hero">
           <div class="hero-primary-card">
-            <canvas id="hero-wave-canvas" class="hero-wave-canvas"></canvas>
-            <div class="hero-label">Total Balance</div>
-            <div class="hero-value" id="dash-total-balance">$0.00</div>
-            <div class="hero-sub">All accounts combined</div>
-            <div class="hero-chips">
-              <div class="hero-chip hero-chip-green">
-                <span>Available</span>
-                <strong id="dash-available">$0.00</strong>
-                <div id="dash-balance-constraint-note" class="card-constraint-note" style="display:none"></div>
-              </div>
-              <div class="hero-chip hero-chip-orange">
-                <span>This Month Left</span>
-                <strong id="dash-monthly-left">$0.00</strong>
-              </div>
-              <div class="hero-chip hero-chip-purple">
-                <span>Weekly Budget</span>
-                <strong id="dash-weekly">$0.00</strong>
-              </div>
+            <div class="hero-bg-anim"></div>
+            <div class="hero-content">
+              <div class="hero-label">Total Balance</div>
+              <div class="hero-value" id="dash-total-balance">$0.00</div>
+              <div class="hero-sub">All accounts combined</div>
             </div>
+          </div>
+        </div>
+
+        <div class="cards-row">
+          <div class="card card-green">
+            <div class="card-label">Available to Spend</div>
+            <div class="card-value" id="dash-available">$0.00</div>
+            <div class="card-sub">After all bills &amp; obligations</div>
+            <div id="dash-balance-constraint-note" class="card-constraint-note" style="display:none"></div>
+          </div>
+          <div class="card card-orange">
+            <div class="card-label">Monthly Budget Left</div>
+            <div class="card-value" id="dash-monthly-left">$0.00</div>
+            <div class="card-sub">Remaining this month</div>
+          </div>
+          <div class="card card-purple">
+            <div class="card-label">Weekly Budget</div>
+            <div class="card-value" id="dash-weekly">$0.00</div>
+            <div class="card-sub">Per week to stay on track</div>
           </div>
         </div>
 

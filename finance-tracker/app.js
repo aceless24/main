@@ -2821,8 +2821,6 @@ function init() {
       setTimeout(() => {
         if (loadingScreen) loadingScreen.classList.add('hidden');
         const theme = pickWaveTheme();
-        // Canvas draws its own dark background — no CSS gradient needed
-        heroWaveAnim   = startWaveCanvas('hero-wave-canvas',    theme);
         headerWaveAnim = startWaveCanvas('header-wave-canvas',  theme);
       }, 400);
     }
