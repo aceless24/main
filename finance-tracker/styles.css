@@ -533,6 +533,63 @@ body {
 .cat-health { background: rgba(239,68,68,0.15); color: var(--red); }
 .cat-other { background: rgba(122,128,153,0.15); color: var(--text-muted); }
 
+/* ─── New Month Banner ─────────────────────────────────────────── */
+.new-month-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(79,142,247,0.1);
+  border: 1px solid rgba(79,142,247,0.35);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.new-month-banner span { flex: 1; font-size: 13px; }
+
+/* ─── Bills Section Labels ─────────────────────────────────────── */
+.bills-section-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 10px;
+  padding: 6px 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.bills-section-sub {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* ─── Variable Bill Badges ─────────────────────────────────────── */
+.vb-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.vb-badge-actual  { background: rgba(46,196,122,0.15); color: #2ec47a; }
+.vb-badge-estimate { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.vb-badge-pending  { background: rgba(122,128,153,0.15); color: #7a8099; }
+
+/* ─── Variable Bill Entry Modal ────────────────────────────────── */
+.vb-entry-divider {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  margin: 4px 0;
+}
+
 /* ─── Credit Card Debt ─────────────────────────────────────────── */
 .cc-summary-row {
   display: grid;

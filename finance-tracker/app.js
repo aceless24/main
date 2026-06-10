@@ -2,15 +2,18 @@
 let state = {
   accounts: { checking: 0, savings: 0 },
   income: { monthly: 0, frequency: 'monthly' },
-  additionalIncome: [], // { id, name, amount, frequency }
-  bills: [],            // { id, name, amount, type:'essential'|'subscription', category, dueDay }
-  creditCards: [],      // { id, name, balance, limit, apr, minPayment, dueDay }
-  ccExtraAllocation: 0, // extra monthly debt payoff amount
-  savingsAllocation: 0, // manual monthly savings allocation
-  transactions: [],     // { id, description, amount, date, category, account, note }
-  unexpected: [],       // { id, description, amount, date, category, account, note }
-  goals: [],            // { id, name, target, saved, targetDate, account }
-  budget: { monthlySpendingTarget: 0, monthlySavingsTarget: 0 }
+  additionalIncome: [],  // { id, name, amount, frequency }
+  bills: [],             // FIXED bills: { id, name, amount, type:'essential'|'subscription', category, dueDay }
+  variableBills: [],     // Variable bill definitions: { id, name, category, dueDay }
+  variableBillEntries: [],// Per-month entries: { id, billId, month:'YYYY-MM', amount, estimateMin, estimateMax }
+  creditCards: [],       // { id, name, balance, limit, apr, minPayment, dueDay }
+  ccExtraAllocation: 0,
+  savingsAllocation: 0,
+  transactions: [],      // { id, description, amount, date, category, account, note }
+  unexpected: [],        // { id, description, amount, date, category, account, note }
+  goals: [],             // { id, name, target, saved, targetDate, account }
+  budget: { monthlySpendingTarget: 0, monthlySavingsTarget: 0 },
+  lastSeenMonth: ''      // used for new-month detection
 };
 
 const STORAGE_KEY = 'finance_tracker_v1';
@@ -97,9 +100,33 @@ function totalSubscriptions() {
   return state.bills.filter(b => b.type === 'subscription').reduce((s, b) => s + b.amount, 0);
 }
 
+// Variable bills for a given month key
+function getVariableEntries(monthKey) {
+  return (state.variableBillEntries || []).filter(e => e.month === monthKey);
+}
+
+function totalVariableBills(monthKey) {
+  return getVariableEntries(monthKey).reduce((s, e) => s + (e.amount || 0), 0);
+}
+
+function totalVariableEstimate(monthKey) {
+  // returns { min, max } using estimate ranges when actual not set
+  const entries = getVariableEntries(monthKey);
+  let min = 0, max = 0;
+  entries.forEach(e => {
+    if (e.amount) { min += e.amount; max += e.amount; }
+    else { min += e.estimateMin || 0; max += e.estimateMax || e.estimateMin || 0; }
+  });
+  return { min, max };
+}
+
+function totalAllBills(monthKey) {
+  return totalBills() + totalVariableBills(monthKey || currentMonthKey());
+}
+
 function discretionaryBudget() {
   const savingsOut = Math.max(state.budget?.monthlySavingsTarget || 0, state.savingsAllocation || 0);
-  return totalMonthlyIncome() - totalBills() - totalCCMonthlyCommitment() - savingsOut;
+  return totalMonthlyIncome() - totalAllBills() - totalCCMonthlyCommitment() - savingsOut;
 }
 
 function weeklyBudget() {
@@ -322,6 +349,9 @@ function renderAccounts() {
 
 /* ─── Bills ─────────────────────────────────────────────────────── */
 function renderBills() {
+  const key = currentMonthKey();
+  const lbl = document.getElementById('variable-month-label');
+  if (lbl) lbl.textContent = monthLabel(key);
   const essential = state.bills.filter(b => b.type === 'essential');
   const subs = state.bills.filter(b => b.type === 'subscription');
 
@@ -347,8 +377,218 @@ function renderBills() {
   renderList(essential, 'essential-bills-list');
   renderList(subs, 'subscription-bills-list');
 
+  // ── Variable bills ──────────────────────────────────────────────
+  const varDefs = state.variableBills || [];
+  const varEntries = getVariableEntries(key);
+  const varList = document.getElementById('variable-bills-list');
+
+  varList.innerHTML = varDefs.length ? varDefs.map(vb => {
+    const entry = varEntries.find(e => e.billId === vb.id);
+    const hasActual = entry && entry.amount > 0;
+    const hasEstimate = entry && (entry.estimateMin > 0 || entry.estimateMax > 0);
+    let statusBadge, amountDisplay;
+
+    if (hasActual) {
+      statusBadge = '<span class="vb-badge vb-badge-actual">Actual</span>';
+      amountDisplay = `<span class="bill-amount">-${fmt(entry.amount)}</span>`;
+    } else if (hasEstimate) {
+      statusBadge = '<span class="vb-badge vb-badge-estimate">Estimated</span>';
+      amountDisplay = `<span class="bill-amount" style="color:#f59e0b">${fmt(entry.estimateMin)}–${fmt(entry.estimateMax)}</span>`;
+    } else {
+      statusBadge = '<span class="vb-badge vb-badge-pending">Not entered</span>';
+      amountDisplay = `<span class="bill-amount" style="color:#7a8099">—</span>`;
+    }
+
+    return `
+      <div class="bill-item">
+        <div class="bill-item-left">
+          <span class="bill-name">${BILL_ICONS[vb.category] || '📋'} ${vb.name} ${statusBadge}</span>
+          <span class="bill-meta">${vb.category} &middot; Due day ${vb.dueDay || 'N/A'}</span>
+        </div>
+        <div class="bill-item-right">
+          ${amountDisplay}
+          <div class="bill-actions">
+            <button onclick="openEnterVariableBill('${vb.id}')" title="Enter amount" style="color:#4f8ef7">&#9998; Enter</button>
+            <button onclick="editVariableBillDef('${vb.id}')" title="Edit definition">&#9881;</button>
+            <button onclick="deleteVariableBillDef('${vb.id}')" title="Delete">&#10005;</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('') : '<div class="empty-state">No variable bills added yet.</div>';
+
+  // Variable totals
+  const varTotal = totalVariableBills(key);
+  const est = totalVariableEstimate(key);
+  document.getElementById('variable-total-footer').textContent =
+    varTotal > 0 ? fmt(varTotal) : (est.min > 0 ? `${fmt(est.min)} – ${fmt(est.max)} (est.)` : '$0.00');
+
+  // ── Bill History ────────────────────────────────────────────────
+  renderBillHistory();
+
   document.getElementById('essential-total-footer').textContent = fmt(totalEssential());
   document.getElementById('subscription-total-footer').textContent = fmt(totalSubscriptions());
+}
+
+function renderBillHistory() {
+  // Collect all months that have variable entries OR fixed bills exist
+  const allMonths = new Set((state.variableBillEntries || []).map(e => e.month));
+  // Also add last 6 months so fixed-bill history always shows
+  const now = new Date();
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    allMonths.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+  }
+
+  const sortedMonths = [...allMonths].sort().reverse().slice(0, 12);
+  const fixedTotal = totalBills();
+  const varDefs = state.variableBills || [];
+
+  const histEl = document.getElementById('bill-history-table');
+  if (sortedMonths.length === 0) {
+    histEl.innerHTML = '<div class="empty-state">No history yet.</div>';
+    return;
+  }
+
+  histEl.innerHTML = `<table class="outlook-table">
+    <thead><tr>
+      <th>Month</th>
+      <th>Fixed Bills</th>
+      <th>Variable Bills</th>
+      <th>CC Payments</th>
+      <th>Total</th>
+      <th>Notes</th>
+    </tr></thead>
+    <tbody>${sortedMonths.map(m => {
+      const varActual = totalVariableBills(m);
+      const est = totalVariableEstimate(m);
+      const entries = getVariableEntries(m);
+      const allEntered = varDefs.length === 0 || varDefs.every(vb => entries.find(e => e.billId === vb.id && e.amount > 0));
+      const varDisplay = varActual > 0 ? fmt(varActual)
+        : est.min > 0 ? `<span style="color:#f59e0b">${fmt(est.min)}–${fmt(est.max)}</span>`
+        : '<span style="color:#7a8099">—</span>';
+
+      const ccPayments = totalCCMinPayments() + (state.ccExtraAllocation || 0);
+      const total = fixedTotal + varActual + ccPayments;
+      const isCurrent = m === currentMonthKey();
+
+      // Build per-variable-bill notes
+      const noteItems = entries.filter(e => e.amount > 0).map(e => {
+        const def = varDefs.find(vb => vb.id === e.billId);
+        return def ? `${def.name}: ${fmt(e.amount)}` : '';
+      }).filter(Boolean);
+
+      return `<tr${isCurrent ? ' style="background:rgba(79,142,247,0.07)"' : ''}>
+        <td><strong>${monthLabel(m)}</strong>${isCurrent ? ' <span style="color:#4f8ef7;font-size:10px">(current)</span>' : ''}</td>
+        <td>${fmt(fixedTotal)}</td>
+        <td>${varDisplay}${!allEntered && varDefs.length > 0 ? ' <span style="color:#f59e0b;font-size:10px">⚠ incomplete</span>' : ''}</td>
+        <td>${fmt(ccPayments)}</td>
+        <td><strong>${varActual > 0 ? fmt(total) : (est.min > 0 ? `${fmt(fixedTotal+est.min+ccPayments)}–${fmt(fixedTotal+est.max+ccPayments)}` : fmt(fixedTotal+ccPayments))}</strong></td>
+        <td style="font-size:11px;color:#7a8099">${noteItems.join(', ') || '—'}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+// Variable bill definition modal
+function openAddVariableBillDef() {
+  document.getElementById('vb-def-edit-id').value = '';
+  document.getElementById('vb-def-name').value = '';
+  document.getElementById('vb-def-category').value = 'Utilities';
+  document.getElementById('vb-def-due-day').value = '';
+  document.getElementById('modal-vb-def-title').textContent = 'Add Variable Bill';
+  openModal('modal-vb-def');
+}
+
+function editVariableBillDef(id) {
+  const vb = (state.variableBills || []).find(v => v.id === id);
+  if (!vb) return;
+  document.getElementById('vb-def-edit-id').value = vb.id;
+  document.getElementById('vb-def-name').value = vb.name;
+  document.getElementById('vb-def-category').value = vb.category;
+  document.getElementById('vb-def-due-day').value = vb.dueDay || '';
+  document.getElementById('modal-vb-def-title').textContent = 'Edit Variable Bill';
+  openModal('modal-vb-def');
+}
+
+function saveVariableBillDef() {
+  const name = document.getElementById('vb-def-name').value.trim();
+  const category = document.getElementById('vb-def-category').value;
+  const dueDay = parseInt(document.getElementById('vb-def-due-day').value) || null;
+  const editId = document.getElementById('vb-def-edit-id').value;
+  if (!name) return alert('Please enter a bill name.');
+  if (!state.variableBills) state.variableBills = [];
+  if (editId) {
+    const idx = state.variableBills.findIndex(v => v.id === editId);
+    if (idx >= 0) state.variableBills[idx] = { ...state.variableBills[idx], name, category, dueDay };
+  } else {
+    state.variableBills.push({ id: uid(), name, category, dueDay });
+  }
+  saveState();
+  closeModal('modal-vb-def');
+  renderSection(currentSection());
+}
+
+function deleteVariableBillDef(id) {
+  if (!confirm('Delete this variable bill? All monthly entries for it will also be removed.')) return;
+  state.variableBills = (state.variableBills || []).filter(v => v.id !== id);
+  state.variableBillEntries = (state.variableBillEntries || []).filter(e => e.billId !== id);
+  saveState();
+  renderSection(currentSection());
+}
+
+// Enter monthly amount for a variable bill
+function openEnterVariableBill(billId) {
+  const vb = (state.variableBills || []).find(v => v.id === billId);
+  if (!vb) return;
+  const key = currentMonthKey();
+  const existing = (state.variableBillEntries || []).find(e => e.billId === billId && e.month === key);
+
+  document.getElementById('vb-entry-bill-id').value = billId;
+  document.getElementById('vb-entry-month').value = key;
+  document.getElementById('vb-entry-bill-name').textContent = `${vb.name} — ${monthLabel(key)}`;
+  document.getElementById('vb-entry-amount').value = existing?.amount || '';
+  document.getElementById('vb-entry-est-min').value = existing?.estimateMin || '';
+  document.getElementById('vb-entry-est-max').value = existing?.estimateMax || '';
+  openModal('modal-vb-entry');
+}
+
+function saveVariableBillEntry() {
+  const billId = document.getElementById('vb-entry-bill-id').value;
+  const month = document.getElementById('vb-entry-month').value;
+  const amount = parseFloat(document.getElementById('vb-entry-amount').value) || 0;
+  const estimateMin = parseFloat(document.getElementById('vb-entry-est-min').value) || 0;
+  const estimateMax = parseFloat(document.getElementById('vb-entry-est-max').value) || 0;
+
+  if (!state.variableBillEntries) state.variableBillEntries = [];
+  const idx = state.variableBillEntries.findIndex(e => e.billId === billId && e.month === month);
+  const entry = { id: uid(), billId, month, amount, estimateMin, estimateMax };
+  if (idx >= 0) state.variableBillEntries[idx] = { ...state.variableBillEntries[idx], amount, estimateMin, estimateMax };
+  else state.variableBillEntries.push(entry);
+
+  saveState();
+  closeModal('modal-vb-entry');
+  renderSection(currentSection());
+}
+
+// New-month notification check
+function checkNewMonth() {
+  const key = currentMonthKey();
+  const last = state.lastSeenMonth || '';
+  if (last && last !== key) {
+    // New month detected — show notification banner
+    const varDefs = state.variableBills || [];
+    if (varDefs.length > 0) {
+      const banner = document.getElementById('new-month-banner');
+      if (banner) {
+        banner.style.display = 'flex';
+        document.getElementById('new-month-label').textContent =
+          `It's a new month (${monthLabel(key)})! Please enter your variable bill amounts.`;
+      }
+    }
+  }
+  state.lastSeenMonth = key;
+  saveState();
+}
 
   // Credit cards
   const cards = state.creditCards || [];
@@ -1312,6 +1552,7 @@ function init() {
     }
   });
 
+  checkNewMonth();
   renderDashboard();
 }
 

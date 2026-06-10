@@ -156,6 +156,16 @@
 
       <!-- BILLS -->
       <section id="section-bills" class="section">
+
+        <!-- New month banner -->
+        <div id="new-month-banner" class="new-month-banner" style="display:none">
+          <span>📅 <strong id="new-month-label"></strong></span>
+          <button class="btn btn-sm btn-primary" onclick="document.getElementById('new-month-banner').style.display='none';navigate('bills')">Enter Variable Bills</button>
+          <button class="btn btn-sm btn-outline" onclick="document.getElementById('new-month-banner').style.display='none'">Dismiss</button>
+        </div>
+
+        <!-- Fixed Bills -->
+        <div class="bills-section-label">📌 Fixed Bills <span class="bills-section-sub">— same amount every month</span></div>
         <div class="two-col">
           <div class="panel">
             <div class="panel-header">
@@ -180,6 +190,30 @@
               <strong id="subscription-total-footer">$0.00</strong>
             </div>
           </div>
+        </div>
+
+        <!-- Variable Bills -->
+        <div class="bills-section-label" style="margin-top:8px">📊 Variable Bills <span class="bills-section-sub">— changes each month (utilities, water, gas, etc.)</span></div>
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Variable Bills — <span id="variable-month-label" style="color:#4f8ef7;font-weight:400"></span></h2>
+            <button class="btn btn-sm btn-primary" onclick="openAddVariableBillDef()">+ Add Variable Bill</button>
+          </div>
+          <p style="font-size:12px;color:#7a8099;margin-bottom:12px">Add your variable bill names once. Each month, click <strong>Enter</strong> to input the actual amount — or set an estimated range if you haven't received the bill yet.</p>
+          <div id="variable-bills-list" class="bills-list"></div>
+          <div class="bills-list-footer">
+            <span>Variable Total This Month</span>
+            <strong id="variable-total-footer">$0.00</strong>
+          </div>
+        </div>
+
+        <!-- Bill History -->
+        <div class="panel">
+          <div class="panel-header">
+            <h2>📜 Bill History</h2>
+            <span class="badge">Last 12 months</span>
+          </div>
+          <div id="bill-history-table" class="outlook-table-wrap"></div>
         </div>
 
         <!-- Credit Card Debt -->
@@ -473,6 +507,76 @@
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeModal('modal-addl-income')">Cancel</button>
         <button class="btn btn-primary" onclick="saveAdditionalIncome()">Save</button>
+      </div>
+    </div>
+
+    <!-- Add Variable Bill Definition -->
+    <div id="modal-vb-def" class="modal hidden">
+      <div class="modal-header">
+        <h3 id="modal-vb-def-title">Add Variable Bill</h3>
+        <button class="modal-close" onclick="closeModal('modal-vb-def')">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="vb-def-edit-id" />
+        <div class="form-group">
+          <label>Bill Name</label>
+          <input type="text" id="vb-def-name" class="input" placeholder="e.g. Electric, Water, Gas" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Category</label>
+            <select id="vb-def-category" class="input">
+              <option value="Utilities">Utilities</option>
+              <option value="Phone">Phone</option>
+              <option value="Internet">Internet</option>
+              <option value="Insurance">Insurance</option>
+              <option value="Housing">Housing</option>
+              <option value="Transportation">Transportation</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Due Day of Month</label>
+            <input type="number" id="vb-def-due-day" class="input" placeholder="1-31" min="1" max="31" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-vb-def')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveVariableBillDef()">Save</button>
+      </div>
+    </div>
+
+    <!-- Enter Variable Bill Monthly Amount -->
+    <div id="modal-vb-entry" class="modal hidden">
+      <div class="modal-header">
+        <h3 id="modal-vb-entry-title">Enter Bill Amount</h3>
+        <button class="modal-close" onclick="closeModal('modal-vb-entry')">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="vb-entry-bill-id" />
+        <input type="hidden" id="vb-entry-month" />
+        <div style="font-size:15px;font-weight:600;margin-bottom:16px;color:#4f8ef7" id="vb-entry-bill-name"></div>
+
+        <div class="form-group">
+          <label>Actual Amount This Month ($)</label>
+          <input type="number" id="vb-entry-amount" class="input" placeholder="0.00 — enter once you receive the bill" step="0.01" min="0" />
+        </div>
+        <div class="vb-entry-divider">— or set an estimated range if bill not yet received —</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Estimate Low ($)</label>
+            <input type="number" id="vb-entry-est-min" class="input" placeholder="e.g. 100.00" step="0.01" min="0" />
+          </div>
+          <div class="form-group">
+            <label>Estimate High ($)</label>
+            <input type="number" id="vb-entry-est-max" class="input" placeholder="e.g. 115.00" step="0.01" min="0" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-vb-entry')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveVariableBillEntry()">Save</button>
       </div>
     </div>
 
