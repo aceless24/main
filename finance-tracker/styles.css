@@ -710,20 +710,69 @@ a.link:hover { text-decoration: underline; }
   background: radial-gradient(circle, rgba(124,58,237,0.3) 0%, transparent 70%);
   border-radius: 50%;
 }
-.hero-bg-anim {
-  position: absolute; inset: 0; border-radius: 24px;
-  background: linear-gradient(-45deg, #0e0528, #1e0a3c, #2d1b69, #4c1d95, #1e1060);
-  background-size: 400% 400%;
-  animation: heroGradientShift 10s ease infinite;
+.hero-wave-canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  border-radius: 24px; pointer-events: none;
 }
-@keyframes heroGradientShift {
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-.hero-content {
+.hero-split {
   position: relative; z-index: 1;
+  display: flex; align-items: center; gap: 32px;
 }
+.hero-content { flex: 0 0 auto; max-width: 48%; }
+.hero-chart-col { flex: 1; min-width: 0; }
+.hero-chart-label {
+  font-size: 11px; color: rgba(255,255,255,0.5); text-align: center;
+  margin-bottom: 8px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;
+}
+.hero-greeting {
+  font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 6px; font-weight: 500;
+}
+
+/* ─── Wave Theme Picker ─────────────────────────────────────────── */
+.wave-theme-options { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+.wave-swatch {
+  width: 100px; height: 64px; border-radius: 12px; border: 3px solid transparent;
+  cursor: pointer; display: flex; align-items: flex-end; padding: 6px 8px;
+  transition: transform 0.15s, border-color 0.15s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.wave-swatch span { font-size: 11px; font-weight: 700; color: white; text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
+.wave-swatch:hover { transform: translateY(-3px); }
+.wave-swatch-active { border-color: white !important; box-shadow: 0 0 0 2px rgba(255,255,255,0.4), 0 4px 12px rgba(0,0,0,0.4); }
+
+/* ─── Home Chart Type Picker ─────────────────────────────────────── */
+.home-chart-options { display: flex; gap: 12px; flex-wrap: wrap; }
+.chart-type-btn {
+  flex: 1; min-width: 120px; padding: 16px 12px; border-radius: 14px;
+  border: 2px solid var(--border); background: var(--card-bg);
+  cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+  color: var(--text);
+}
+.chart-type-btn:hover { transform: translateY(-2px); border-color: #7c3aed; }
+.chart-type-btn-active { border-color: #7c3aed; background: rgba(124,58,237,0.1); }
+.chart-type-icon { font-size: 22px; }
+.chart-type-btn span { font-size: 13px; font-weight: 600; }
+.chart-type-btn small { font-size: 11px; color: var(--text-muted); }
+
+/* ─── Reports Section ───────────────────────────────────────────── */
+.report-filters { display: flex; flex-direction: column; gap: 12px; }
+.report-cat-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.report-cat-name { min-width: 140px; font-size: 13px; font-weight: 600; }
+.report-cat-bar-wrap { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.report-cat-bar { height: 100%; background: linear-gradient(90deg, #7c3aed, #a78bfa); border-radius: 4px; transition: width 0.4s ease; }
+.report-cat-pct { min-width: 120px; text-align: right; font-size: 12px; color: var(--text-muted); }
+.report-table-wrap { overflow-x: auto; }
+.report-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.report-table th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); border-bottom: 2px solid var(--border); }
+.report-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.report-table tr:hover td { background: rgba(124,58,237,0.04); }
+.report-type-badge { padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+.badge-tx { background: rgba(99,102,241,0.15); color: #818cf8; }
+.badge-unexpected { background: rgba(239,68,68,0.15); color: #f87171; }
 
 /* ─── Section Wave Header ────────────────────────────────────────── */
 .section-wave-header {

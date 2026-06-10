@@ -244,11 +244,16 @@ function totalSavingsBalance() {
 /* ─── Wave Animation ───────────────────────────────────────────── */
 // Five themes matching the reference images — saturated glowing ribbons on dark bg
 const WAVE_THEMES = [
-  { name: 'aurora',  bg: '#06001a', colors: ['#9d4edd','#c77dff','#7b2ff7','#e0aaff'] },
-  { name: 'ocean',   bg: '#00060f', colors: ['#00b4d8','#48cae4','#0077b6','#90e0ef'] },
-  { name: 'nebula',  bg: '#0d0014', colors: ['#f72585','#b5179e','#7209b7','#480ca8'] },
-  { name: 'cyber',   bg: '#000a0f', colors: ['#00f5d4','#00bbf9','#9b5de5','#f15bb5'] },
-  { name: 'plasma',  bg: '#00010f', colors: ['#4361ee','#4cc9f0','#3f37c9','#4895ef'] },
+  { name: 'ocean',    label: 'Ocean',    bg: '#00060f', colors: ['#00b4d8','#48cae4','#0077b6','#90e0ef'] },
+  { name: 'aurora',   label: 'Aurora',   bg: '#06001a', colors: ['#9d4edd','#c77dff','#7b2ff7','#e0aaff'] },
+  { name: 'nebula',   label: 'Nebula',   bg: '#0d0014', colors: ['#f72585','#b5179e','#7209b7','#480ca8'] },
+  { name: 'cyber',    label: 'Cyber',    bg: '#000a0f', colors: ['#00f5d4','#00bbf9','#9b5de5','#f15bb5'] },
+  { name: 'plasma',   label: 'Plasma',   bg: '#00010f', colors: ['#4361ee','#4cc9f0','#3f37c9','#4895ef'] },
+  { name: 'midnight', label: 'Midnight', bg: '#000d1a', colors: ['#0066ff','#00aaff','#0033cc','#66ccff'] },
+  { name: 'emerald',  label: 'Emerald',  bg: '#001a0d', colors: ['#00c853','#69f0ae','#00a040','#b9f6ca'] },
+  { name: 'sunset',   label: 'Sunset',   bg: '#1a0800', colors: ['#ff6b35','#ff8c42','#ffcd80','#ffa726'] },
+  { name: 'ice',      label: 'Ice',      bg: '#001020', colors: ['#80d8ff','#40c4ff','#00b0ff','#e0f7fa'] },
+  { name: 'gold',     label: 'Gold',     bg: '#0d0a00', colors: ['#ffd700','#ffb300','#ff8f00','#fff176'] },
 ];
 
 let activeWaveTheme = null;
@@ -256,7 +261,8 @@ let heroWaveAnim    = null;
 let headerWaveAnim  = null;
 
 function pickWaveTheme() {
-  activeWaveTheme = WAVE_THEMES[Math.floor(Math.random() * WAVE_THEMES.length)];
+  const themeName = (state.settings && state.settings.waveTheme) || 'ocean';
+  activeWaveTheme = WAVE_THEMES.find(t => t.name === themeName) || WAVE_THEMES[0];
   return activeWaveTheme;
 }
 
@@ -389,7 +395,8 @@ function navigate(section) {
     outlook: 'Outlook',
     unexpected: 'Unexpected Expenses',
     goals: 'Savings Goals',
-    settings: 'Settings'
+    settings: 'Settings',
+    reports: 'Reports'
   }[section] || section;
 
   const waveHeader = document.getElementById('section-wave-header');
@@ -420,10 +427,81 @@ function renderSection(section) {
   if (section === 'unexpected') renderUnexpected();
   if (section === 'goals') renderGoals();
   if (section === 'settings') renderSettings();
+  if (section === 'reports') renderReports();
 }
 
 /* ─── Dashboard ─────────────────────────────────────────────────── */
 let billsChart, spendingDonutChart;
+let homeHeroChart = null;
+
+function renderHomeChart() {
+  const chartType = (state.settings && state.settings.homeChartType) || 'donut';
+  const canvas = document.getElementById('home-hero-chart');
+  if (!canvas) return;
+  if (homeHeroChart) { homeHeroChart.destroy(); homeHeroChart = null; }
+  const key = currentMonthKey();
+  const spent = spentThisMonth();
+  const adjDisc = adjustedDiscretionary();
+  const ctx = canvas.getContext('2d');
+  const labelEl = document.getElementById('home-chart-label');
+
+  if (chartType === 'donut') {
+    if (labelEl) labelEl.textContent = 'Spending vs Budget';
+    const pct = adjDisc > 0 ? Math.min(100, (spent / adjDisc) * 100) : 0;
+    homeHeroChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Spent', 'Remaining'],
+        datasets: [{ data: [spent, Math.max(0, adjDisc - spent)], backgroundColor: [pct > 90 ? '#ef4444' : '#7c3aed', 'rgba(255,255,255,0.12)'], borderWidth: 0, hoverOffset: 4 }]
+      },
+      options: {
+        animation: { duration: 700, easing: 'easeInOutQuart' },
+        plugins: { legend: { labels: { color: 'rgba(255,255,255,0.7)', font: { size: 11, family: 'Inter' } } } },
+        cutout: '70%'
+      }
+    });
+  } else if (chartType === 'bar') {
+    const txs = getTransactionsForMonth(key);
+    const catMap = {};
+    txs.forEach(t => { catMap[t.category] = (catMap[t.category] || 0) + t.amount; });
+    const labels = Object.keys(catMap);
+    const data = labels.map(k => catMap[k]);
+    if (labelEl) labelEl.textContent = 'Spending by Category';
+    homeHeroChart = new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: 'Amount', data, backgroundColor: 'rgba(124,58,237,0.6)', borderColor: '#7c3aed', borderWidth: 1, borderRadius: 4 }] },
+      options: {
+        animation: { duration: 700 },
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.08)' } },
+          y: { ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.08)' } }
+        }
+      }
+    });
+  } else if (chartType === 'line') {
+    const months = [], amounts = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(); d.setMonth(d.getMonth() - i);
+      const mKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      months.push(MONTHS[d.getMonth()].slice(0, 3));
+      amounts.push(state.transactions.filter(t => t.date.startsWith(mKey)).reduce((s, t) => s + t.amount, 0));
+    }
+    if (labelEl) labelEl.textContent = '6-Month Spending Trend';
+    homeHeroChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: months, datasets: [{ label: 'Spent', data: amounts, borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,0.2)', fill: true, tension: 0.4, pointBackgroundColor: '#c77dff', pointRadius: 4 }] },
+      options: {
+        animation: { duration: 700 },
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.08)' } },
+          y: { ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.08)' } }
+        }
+      }
+    });
+  }
+}
 
 function renderDashboard() {
   const key = currentMonthKey();
@@ -441,6 +519,14 @@ function renderDashboard() {
   document.getElementById('dash-available').textContent = fmt(Math.max(0, avail));
   document.getElementById('dash-monthly-left').textContent = fmt(Math.max(0, adjDisc - spent));
   document.getElementById('dash-weekly').textContent = fmt(Math.max(0, wkly));
+
+  // greeting
+  const greetEl = document.getElementById('dash-greeting');
+  if (greetEl) {
+    const hr = new Date().getHours();
+    greetEl.textContent = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
+  }
+  renderHomeChart();
 
   // section wave header values
   const headerBal = document.getElementById('header-balance-display');
@@ -2773,20 +2859,218 @@ function initTheme() {
 function renderSettings() {
   const saved = getSavedTheme();
   const el = document.getElementById('settings-theme-options');
-  if (!el) return;
-  ['light', 'dark', 'system'].forEach(opt => {
-    const btn = document.getElementById(`theme-btn-${opt}`);
-    if (btn) {
-      btn.classList.toggle('theme-btn-active', saved === opt);
-    }
-  });
-  document.getElementById('settings-theme-current').textContent =
-    saved === 'system' ? `System (currently ${getSystemTheme()})` : saved.charAt(0).toUpperCase() + saved.slice(1);
+  if (el) {
+    ['light', 'dark', 'system'].forEach(opt => {
+      const btn = document.getElementById(`theme-btn-${opt}`);
+      if (btn) btn.classList.toggle('theme-btn-active', saved === opt);
+    });
+  }
+  const themeCurrentEl = document.getElementById('settings-theme-current');
+  if (themeCurrentEl) {
+    themeCurrentEl.textContent = saved === 'system' ? `System (currently ${getSystemTheme()})` : saved.charAt(0).toUpperCase() + saved.slice(1);
+  }
+
+  // Wave theme swatches
+  const waveEl = document.getElementById('wave-theme-options');
+  if (waveEl) {
+    const currentWave = (state.settings && state.settings.waveTheme) || 'ocean';
+    waveEl.innerHTML = WAVE_THEMES.map(t => `
+      <button class="wave-swatch ${currentWave === t.name ? 'wave-swatch-active' : ''}"
+              onclick="setWaveTheme('${t.name}')" title="${t.label}"
+              style="background:linear-gradient(135deg,${t.colors[0]},${t.colors[1]},${t.colors[2]})">
+        <span>${t.label}</span>
+      </button>`).join('');
+  }
+
+  // Home chart type buttons
+  const chartEl = document.getElementById('home-chart-options');
+  if (chartEl) {
+    const currentChart = (state.settings && state.settings.homeChartType) || 'donut';
+    chartEl.querySelectorAll('.chart-type-btn').forEach(btn => {
+      btn.classList.toggle('chart-type-btn-active', btn.dataset.chart === currentChart);
+    });
+  }
 }
 
 function setTheme(preference) {
   applyTheme(preference);
   renderSettings();
+}
+
+function setWaveTheme(themeName) {
+  if (!state.settings) state.settings = {};
+  state.settings.waveTheme = themeName;
+  saveState();
+  if (heroWaveAnim) { heroWaveAnim.stop(); heroWaveAnim = null; }
+  if (headerWaveAnim) { headerWaveAnim.stop(); headerWaveAnim = null; }
+  activeWaveTheme = WAVE_THEMES.find(t => t.name === themeName) || WAVE_THEMES[0];
+  heroWaveAnim   = startWaveCanvas('hero-wave-canvas',   activeWaveTheme);
+  headerWaveAnim = startWaveCanvas('header-wave-canvas', activeWaveTheme);
+  renderSettings();
+}
+
+function setHomeChartType(type) {
+  if (!state.settings) state.settings = {};
+  state.settings.homeChartType = type;
+  saveState();
+  renderSettings();
+  if (currentSection() === 'dashboard') renderHomeChart();
+}
+
+/* ─── Reports ───────────────────────────────────────────────────── */
+let reportTrendChart = null;
+let lastReportResults = [];
+
+function renderReports() {
+  // Populate year dropdown once
+  const yearEl = document.getElementById('report-year');
+  if (yearEl && !yearEl.options.length) {
+    const allTx = [...state.transactions, ...(state.unexpected || [])];
+    const years = new Set(allTx.map(t => t.date.slice(0, 4)));
+    years.add(String(new Date().getFullYear()));
+    [...years].sort().reverse().forEach(y => {
+      const opt = document.createElement('option');
+      opt.value = y; opt.textContent = y;
+      if (y === String(new Date().getFullYear())) opt.selected = true;
+      yearEl.appendChild(opt);
+    });
+  }
+  // Populate account dropdown once
+  const acctEl = document.getElementById('report-account');
+  if (acctEl && acctEl.options.length === 1) {
+    (state.bankAccounts || []).forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.id; opt.textContent = accountDisplayName(a);
+      acctEl.appendChild(opt);
+    });
+    const co = document.createElement('option');
+    co.value = 'credit'; co.textContent = 'Credit Card';
+    acctEl.appendChild(co);
+  }
+  // Populate category dropdown once
+  const catEl = document.getElementById('report-category');
+  if (catEl && catEl.options.length === 1) {
+    const cats = new Set([...state.transactions, ...(state.unexpected || [])].map(t => t.category));
+    [...cats].sort().forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c; opt.textContent = c;
+      catEl.appendChild(opt);
+    });
+  }
+}
+
+function generateReport() {
+  const year     = document.getElementById('report-year')?.value || '';
+  const account  = document.getElementById('report-account')?.value || '';
+  const category = document.getElementById('report-category')?.value || '';
+  const dateFrom = document.getElementById('report-date-from')?.value || '';
+  const dateTo   = document.getElementById('report-date-to')?.value || '';
+  const search   = (document.getElementById('report-search')?.value || '').toLowerCase();
+  const inclUnexp = document.getElementById('report-include-unexpected')?.checked ?? true;
+
+  let items = state.transactions.map(t => ({ ...t, source: 'transaction' }));
+  if (inclUnexp) items = items.concat((state.unexpected || []).map(u => ({ ...u, source: 'unexpected' })));
+
+  items = items.filter(t => {
+    if (year && !t.date.startsWith(year)) return false;
+    if (dateFrom && t.date < dateFrom) return false;
+    if (dateTo && t.date > dateTo) return false;
+    if (account && t.account !== account) return false;
+    if (category && t.category !== category) return false;
+    if (search && !t.description.toLowerCase().includes(search) && !(t.note || '').toLowerCase().includes(search)) return false;
+    return true;
+  });
+  items.sort((a, b) => new Date(b.date) - new Date(a.date));
+  lastReportResults = items;
+
+  document.getElementById('report-results').style.display = '';
+
+  const total = items.reduce((s, t) => s + t.amount, 0);
+  const avg   = items.length ? total / items.length : 0;
+  const catTotals = {};
+  items.forEach(t => { catTotals[t.category] = (catTotals[t.category] || 0) + t.amount; });
+  const topCat = Object.entries(catTotals).sort((a, b) => b[1] - a[1])[0];
+
+  const summaryEl = document.getElementById('report-summary-cards');
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      <div class="card card-blue"><div class="card-label">Total Expenses</div><div class="card-value">${fmt(total)}</div></div>
+      <div class="card card-green"><div class="card-label">Transactions</div><div class="card-value">${items.length}</div></div>
+      <div class="card card-orange"><div class="card-label">Avg per Transaction</div><div class="card-value">${fmt(avg)}</div></div>
+      <div class="card card-purple"><div class="card-label">Top Category</div><div class="card-value" style="font-size:16px">${topCat ? topCat[0] : '—'}</div></div>`;
+  }
+
+  const catBreakEl = document.getElementById('report-category-breakdown');
+  if (catBreakEl) {
+    const sorted = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
+    catBreakEl.innerHTML = sorted.length ? sorted.map(([cat, amt]) => {
+      const pct = total > 0 ? (amt / total * 100).toFixed(1) : 0;
+      return `<div class="report-cat-row">
+        <span class="report-cat-name">${CATEGORY_ICONS[cat] || '📋'} ${cat}</span>
+        <div class="report-cat-bar-wrap"><div class="report-cat-bar" style="width:${pct}%"></div></div>
+        <span class="report-cat-pct">${fmt(amt)} <small>(${pct}%)</small></span>
+      </div>`;
+    }).join('') : '<div class="empty-state">No data.</div>';
+  }
+
+  // Monthly trend chart
+  const trendCanvas = document.getElementById('report-trend-chart');
+  if (trendCanvas) {
+    if (reportTrendChart) { reportTrendChart.destroy(); reportTrendChart = null; }
+    const monthMap = {};
+    items.forEach(t => { const m = t.date.slice(0,7); monthMap[m] = (monthMap[m]||0) + t.amount; });
+    const mKeys   = Object.keys(monthMap).sort();
+    const mLabels = mKeys.map(m => monthLabel(m).slice(0, 8));
+    const mAmts   = mKeys.map(m => monthMap[m]);
+    reportTrendChart = new Chart(trendCanvas.getContext('2d'), {
+      type: 'bar',
+      data: { labels: mLabels, datasets: [{ label: 'Expenses', data: mAmts, backgroundColor: 'rgba(124,58,237,0.6)', borderColor: '#7c3aed', borderWidth: 1, borderRadius: 4 }] },
+      options: {
+        animation: { duration: 700 },
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          y: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } }
+        }
+      }
+    });
+  }
+
+  // Transaction table
+  const tableEl = document.getElementById('report-table');
+  if (tableEl) {
+    tableEl.innerHTML = items.length ? `
+      <table class="report-table">
+        <thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Account</th><th>Amount</th><th>Type</th></tr></thead>
+        <tbody>${items.map(t => `<tr>
+          <td>${formatDate(t.date)}</td>
+          <td>${t.description}</td>
+          <td>${t.category}</td>
+          <td>${t.account === 'credit' ? 'Credit Card' : accountDisplayNameById(t.account)}</td>
+          <td class="amount-red">-${fmt(t.amount)}</td>
+          <td><span class="report-type-badge ${t.source === 'unexpected' ? 'badge-unexpected' : 'badge-tx'}">${t.source === 'unexpected' ? 'Unexpected' : 'Transaction'}</span></td>
+        </tr>`).join('')}</tbody>
+      </table>` : '<div class="empty-state">No transactions match your filters.</div>';
+  }
+}
+
+function exportReportCSV() {
+  if (!lastReportResults.length) return;
+  const header = ['Date','Description','Category','Account','Amount','Type'];
+  const rows = lastReportResults.map(t => [
+    t.date,
+    `"${t.description.replace(/"/g,'""')}"`,
+    t.category,
+    t.account === 'credit' ? 'Credit Card' : accountDisplayNameById(t.account),
+    t.amount.toFixed(2),
+    t.source === 'unexpected' ? 'Unexpected' : 'Transaction'
+  ]);
+  const csv  = [header.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `trackwise-report-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
 }
 
 /* ─── Utilities ─────────────────────────────────────────────────── */
@@ -2821,7 +3105,8 @@ function init() {
       setTimeout(() => {
         if (loadingScreen) loadingScreen.classList.add('hidden');
         const theme = pickWaveTheme();
-        headerWaveAnim = startWaveCanvas('header-wave-canvas',  theme);
+        heroWaveAnim   = startWaveCanvas('hero-wave-canvas',   theme);
+        headerWaveAnim = startWaveCanvas('header-wave-canvas', theme);
       }, 400);
     }
     if (loadingBar) loadingBar.style.width = progress + '%';
