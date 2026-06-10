@@ -533,6 +533,57 @@ body {
 .cat-health { background: rgba(239,68,68,0.15); color: var(--red); }
 .cat-other { background: rgba(122,128,153,0.15); color: var(--text-muted); }
 
+/* ─── Budget Targets ───────────────────────────────────────────── */
+.budget-targets-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.budget-target-item {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.budget-target-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.budget-target-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.budget-target-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.input-prefix {
+  color: var(--text-muted);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.budget-target-input {
+  flex: 1;
+  font-size: 18px;
+  font-weight: 700;
+  padding: 10px 12px;
+}
+
+@media (max-width: 640px) {
+  .budget-targets-grid { grid-template-columns: 1fr; }
+}
+
 /* ─── Scrollbar ────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }

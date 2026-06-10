@@ -2,9 +2,11 @@
 let state = {
   accounts: { checking: 0, savings: 0 },
   income: { monthly: 0, frequency: 'monthly' },
-  bills: [],        // { id, name, amount, type:'essential'|'subscription', category, dueDay }
-  transactions: [], // { id, description, amount, date, category, account, note }
-  goals: []         // { id, name, target, saved, targetDate, account }
+  additionalIncome: [], // { id, name, amount, frequency }
+  bills: [],            // { id, name, amount, type:'essential'|'subscription', category, dueDay }
+  transactions: [],     // { id, description, amount, date, category, account, note }
+  goals: [],            // { id, name, target, saved, targetDate, account }
+  budget: { monthlySpendingTarget: 0, monthlySavingsTarget: 0 }
 };
 
 const STORAGE_KEY = 'finance_tracker_v1';
@@ -59,6 +61,14 @@ function getTransactionsForMonth(key) {
   return state.transactions.filter(t => t.date.startsWith(key));
 }
 
+function totalAdditionalIncome() {
+  return (state.additionalIncome || []).reduce((s, i) => s + i.amount, 0);
+}
+
+function totalMonthlyIncome() {
+  return state.income.monthly + totalAdditionalIncome();
+}
+
 function totalBills() {
   return state.bills.reduce((s, b) => s + b.amount, 0);
 }
@@ -72,7 +82,7 @@ function totalSubscriptions() {
 }
 
 function discretionaryBudget() {
-  return state.income.monthly - totalBills();
+  return totalMonthlyIncome() - totalBills() - (state.budget?.monthlySavingsTarget || 0);
 }
 
 function weeklyBudget() {
@@ -250,7 +260,7 @@ function renderAccounts() {
 
   document.getElementById('income-display').innerHTML = `
     <div class="income-item">
-      <div class="income-item-label">Monthly Take-Home</div>
+      <div class="income-item-label">Primary Take-Home</div>
       <div class="income-item-value">${fmt(state.income.monthly)}</div>
     </div>
     <div class="income-item">
@@ -258,10 +268,37 @@ function renderAccounts() {
       <div class="income-item-value">${fmt(wkly)}</div>
     </div>
     <div class="income-item">
+      <div class="income-item-label">Additional Income</div>
+      <div class="income-item-value">${fmt(totalAdditionalIncome())}</div>
+    </div>
+    <div class="income-item">
+      <div class="income-item-label">Total Monthly Income</div>
+      <div class="income-item-value" style="color:#4f8ef7">${fmt(totalMonthlyIncome())}</div>
+    </div>
+    <div class="income-item">
       <div class="income-item-label">After Bills</div>
       <div class="income-item-value">${fmt(Math.max(0, discretionaryBudget()))}</div>
     </div>
   `;
+
+  // Additional income list
+  const addlList = document.getElementById('additional-income-list');
+  const addlIncome = state.additionalIncome || [];
+  addlList.innerHTML = addlIncome.length ? addlIncome.map(i => `
+    <div class="bill-item">
+      <div class="bill-item-left">
+        <span class="bill-name">💰 ${i.name}</span>
+        <span class="bill-meta">${i.frequency}</span>
+      </div>
+      <div class="bill-item-right">
+        <span class="bill-amount" style="color:#2ec47a">+${fmt(i.amount)}/mo</span>
+        <div class="bill-actions">
+          <button onclick="editAdditionalIncome('${i.id}')" title="Edit">&#9998;</button>
+          <button onclick="deleteAdditionalIncome('${i.id}')" title="Delete">&#10005;</button>
+        </div>
+      </div>
+    </div>
+  `).join('') : '<div class="empty-state">No additional income sources added.</div>';
 }
 
 /* ─── Bills ─────────────────────────────────────────────────────── */
@@ -367,22 +404,35 @@ function renderSpending() {
 let budgetVsSpendChart;
 
 function renderBudget() {
-  const inc = state.income.monthly;
+  const inc = totalMonthlyIncome();
   const bills = totalBills();
   const disc = discretionaryBudget();
   const wkly = weeklyBudget();
   const spent = spentThisMonth();
+  const spendTarget = state.budget?.monthlySpendingTarget || 0;
+  const saveTarget = state.budget?.monthlySavingsTarget || 0;
 
   document.getElementById('budget-income').textContent = fmt(inc);
   document.getElementById('budget-bills').textContent = fmt(bills);
   document.getElementById('budget-discretionary').textContent = fmt(Math.max(0, disc));
   document.getElementById('budget-weekly').textContent = fmt(Math.max(0, wkly));
 
+  // Spending target inputs
+  document.getElementById('budget-spend-target').value = spendTarget || '';
+  document.getElementById('budget-savings-target').value = saveTarget || '';
+
   // breakdown
   const breakdown = document.getElementById('budget-breakdown');
-  const billsPct = inc > 0 ? (bills / inc) * 100 : 0;
-  const spendingPct = inc > 0 ? (spent / inc) * 100 : 0;
-  const savingsPct = 100 - billsPct - spendingPct;
+  const billsPct   = inc > 0 ? (bills / inc) * 100 : 0;
+  const savePct    = inc > 0 ? (saveTarget / inc) * 100 : 0;
+  const spendPct   = inc > 0 ? (spent / inc) * 100 : 0;
+  const targetPct  = inc > 0 ? (spendTarget / inc) * 100 : 0;
+  const remaining  = inc - bills - saveTarget - spent;
+  const remainPct  = inc > 0 ? Math.max(0, (remaining / inc) * 100) : 0;
+
+  const spendVsTarget = spendTarget > 0
+    ? `<span style="color:${spent > spendTarget ? '#ef4444' : '#2ec47a'}">${fmt(spent)} of ${fmt(spendTarget)} target</span>`
+    : `<span>${fmt(spent)} spent</span>`;
 
   breakdown.innerHTML = `
     <div class="budget-item">
@@ -390,16 +440,25 @@ function renderBudget() {
       <div class="budget-bar-track"><div class="budget-bar-fill" style="width:${Math.min(100,billsPct)}%;background:#ef4444"></div></div>
     </div>
     <div class="budget-item">
-      <div class="budget-item-header"><span>Discretionary Spending (This Month)</span><span>${fmt(spent)} (${spendingPct.toFixed(0)}%)</span></div>
-      <div class="budget-bar-track"><div class="budget-bar-fill" style="width:${Math.min(100,spendingPct)}%;background:#f59e0b"></div></div>
+      <div class="budget-item-header"><span>Monthly Savings Target</span><span style="color:#a855f7">${fmt(saveTarget)} (${savePct.toFixed(0)}%)</span></div>
+      <div class="budget-bar-track"><div class="budget-bar-fill" style="width:${Math.min(100,savePct)}%;background:#a855f7"></div></div>
     </div>
     <div class="budget-item">
-      <div class="budget-item-header"><span>Remaining</span><span>${fmt(Math.max(0,disc - spent))} (${Math.max(0, savingsPct).toFixed(0)}%)</span></div>
-      <div class="budget-bar-track"><div class="budget-bar-fill" style="width:${Math.min(100,Math.max(0,savingsPct))}%;background:#2ec47a"></div></div>
+      <div class="budget-item-header"><span>Discretionary Spending</span>${spendVsTarget}</div>
+      <div class="budget-bar-track">
+        ${spendTarget > 0
+          ? `<div class="budget-bar-fill" style="width:${Math.min(100,targetPct)}%;background:#1e3a5f;position:relative"></div>`
+          : ''}
+        <div class="budget-bar-fill" style="width:${Math.min(100,spendPct)}%;background:${spent > spendTarget && spendTarget > 0 ? '#ef4444' : '#f59e0b'};margin-top:${spendTarget > 0 ? '-8px' : '0'}"></div>
+      </div>
+    </div>
+    <div class="budget-item">
+      <div class="budget-item-header"><span>Remaining</span><span style="color:${remaining >= 0 ? '#2ec47a' : '#ef4444'}">${fmt(Math.abs(remaining))} ${remaining < 0 ? 'over' : 'left'}</span></div>
+      <div class="budget-bar-track"><div class="budget-bar-fill" style="width:${Math.min(100,remainPct)}%;background:#2ec47a"></div></div>
     </div>
   `;
 
-  // per-category spending vs estimated budget
+  // per-category spending chart
   const catCtx = document.getElementById('budget-vs-spend-chart').getContext('2d');
   if (budgetVsSpendChart) budgetVsSpendChart.destroy();
 
@@ -409,17 +468,26 @@ function renderBudget() {
   txs.forEach(t => { catTotals[t.category] = (catTotals[t.category] || 0) + t.amount; });
 
   const cats = Object.keys(catTotals);
+  const datasets = [{
+    label: 'Spent This Month',
+    data: cats.map(c => catTotals[c]),
+    backgroundColor: '#4f8ef7',
+    borderRadius: 4
+  }];
+
+  if (spendTarget > 0 && cats.length > 0) {
+    const perCat = spendTarget / cats.length;
+    datasets.push({
+      label: 'Target (even split)',
+      data: cats.map(() => perCat),
+      backgroundColor: 'rgba(245,158,11,0.25)',
+      borderRadius: 4
+    });
+  }
+
   budgetVsSpendChart = new Chart(catCtx, {
     type: 'bar',
-    data: {
-      labels: cats,
-      datasets: [{
-        label: 'Spent This Month',
-        data: cats.map(c => catTotals[c]),
-        backgroundColor: '#4f8ef7',
-        borderRadius: 4
-      }]
-    },
+    data: { labels: cats, datasets },
     options: {
       indexAxis: 'y',
       plugins: { legend: { labels: { color: '#7a8099', font: { size: 11 } } } },
@@ -437,21 +505,31 @@ function renderBudget() {
     return;
   }
 
-  const perCatBudget = disc > 0 ? disc / cats.length : 0;
+  const budgetPerCat = spendTarget > 0 ? spendTarget / cats.length : (disc > 0 ? disc / cats.length : 0);
   progressList.innerHTML = cats.map(cat => {
     const s = catTotals[cat];
-    const pct = perCatBudget > 0 ? Math.min(100, (s / perCatBudget) * 100) : 0;
+    const pct = budgetPerCat > 0 ? Math.min(100, (s / budgetPerCat) * 100) : 0;
     const color = pct > 90 ? '#ef4444' : pct > 70 ? '#f59e0b' : '#2ec47a';
+    const budgetLabel = budgetPerCat > 0 ? ` of ${fmt(budgetPerCat)}` : '';
     return `
       <div class="progress-item">
         <div class="progress-header">
           <span>${CATEGORY_ICONS[cat] || ''} ${cat}</span>
-          <span>${fmt(s)}</span>
+          <span>${fmt(s)}${budgetLabel}</span>
         </div>
         <div class="progress-track"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
       </div>
     `;
   }).join('');
+}
+
+function saveBudgetTargets() {
+  const spendTarget = parseFloat(document.getElementById('budget-spend-target').value) || 0;
+  const saveTarget = parseFloat(document.getElementById('budget-savings-target').value) || 0;
+  state.budget = { monthlySpendingTarget: spendTarget, monthlySavingsTarget: saveTarget };
+  saveState();
+  renderBudget();
+  renderDashboard();
 }
 
 /* ─── Outlook ───────────────────────────────────────────────────── */
@@ -491,12 +569,17 @@ function renderOutlook() {
     const label = `${MONTHS[d.getMonth()].slice(0,3)} ${d.getFullYear()}`;
     labels.push(label);
 
-    const savingsContrib = inc * savingsRate;
-    const netChange = inc - bills - avgSpending - savingsContrib;
+    const savingsContrib = (state.budget?.monthlySavingsTarget || 0) > 0
+      ? state.budget.monthlySavingsTarget
+      : inc * savingsRate;
+    const spendBudget = (state.budget?.monthlySpendingTarget || 0) > 0
+      ? state.budget.monthlySpendingTarget
+      : avgSpending;
+    const netChange = inc - bills - spendBudget - savingsContrib;
     checkingBalance += netChange;
     savingsBalance += savingsContrib;
 
-    rows.push({ label, income: inc, bills, spending: avgSpending, savings: savingsContrib, checkingBalance, savingsBalance, total: checkingBalance + savingsBalance });
+    rows.push({ label, income: inc, bills, spending: spendBudget, savings: savingsContrib, checkingBalance, savingsBalance, total: checkingBalance + savingsBalance });
     checkingData.push(Math.max(0, checkingBalance));
     savingsData.push(Math.max(0, savingsBalance));
     totalData.push(Math.max(0, checkingBalance + savingsBalance));
@@ -795,6 +878,56 @@ function saveIncome() {
   renderSection(currentSection());
 }
 
+// Additional Income
+function openAddAdditionalIncome() {
+  document.getElementById('addl-income-edit-id').value = '';
+  document.getElementById('addl-income-name').value = '';
+  document.getElementById('addl-income-amount').value = '';
+  document.getElementById('addl-income-frequency').value = 'monthly';
+  document.getElementById('modal-addl-income-title').textContent = 'Add Additional Income';
+  openModal('modal-addl-income');
+}
+
+function editAdditionalIncome(id) {
+  const item = (state.additionalIncome || []).find(i => i.id === id);
+  if (!item) return;
+  document.getElementById('addl-income-edit-id').value = item.id;
+  document.getElementById('addl-income-name').value = item.name;
+  document.getElementById('addl-income-amount').value = item.amount;
+  document.getElementById('addl-income-frequency').value = item.frequency;
+  document.getElementById('modal-addl-income-title').textContent = 'Edit Additional Income';
+  openModal('modal-addl-income');
+}
+
+function saveAdditionalIncome() {
+  const name = document.getElementById('addl-income-name').value.trim();
+  const amount = parseFloat(document.getElementById('addl-income-amount').value);
+  const frequency = document.getElementById('addl-income-frequency').value;
+  const editId = document.getElementById('addl-income-edit-id').value;
+
+  if (!name || isNaN(amount) || amount <= 0) return alert('Please enter a valid name and amount.');
+
+  if (!state.additionalIncome) state.additionalIncome = [];
+
+  if (editId) {
+    const idx = state.additionalIncome.findIndex(i => i.id === editId);
+    if (idx >= 0) state.additionalIncome[idx] = { ...state.additionalIncome[idx], name, amount, frequency };
+  } else {
+    state.additionalIncome.push({ id: uid(), name, amount, frequency });
+  }
+
+  saveState();
+  closeModal('modal-addl-income');
+  renderSection(currentSection());
+}
+
+function deleteAdditionalIncome(id) {
+  if (!confirm('Remove this income source?')) return;
+  state.additionalIncome = (state.additionalIncome || []).filter(i => i.id !== id);
+  saveState();
+  renderSection(currentSection());
+}
+
 // Goal
 function openAddGoal() {
   document.getElementById('modal-goal-title').textContent = 'Add Savings Goal';
@@ -920,5 +1053,9 @@ function init() {
 
   renderDashboard();
 }
+
+// Auto-save on every state mutation is already handled by saveState().
+// This catches any edge cases where the window closes mid-operation.
+window.addEventListener('beforeunload', () => saveState());
 
 document.addEventListener('DOMContentLoaded', init);

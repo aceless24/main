@@ -138,10 +138,18 @@
 
         <div class="panel">
           <div class="panel-header">
-            <h2>Monthly Income</h2>
+            <h2>Primary Income</h2>
             <button class="btn btn-sm btn-primary" onclick="openEditIncome()">Edit Income</button>
           </div>
           <div class="income-grid" id="income-display"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Additional Income</h2>
+            <button class="btn btn-sm btn-primary" onclick="openAddAdditionalIncome()">+ Add Source</button>
+          </div>
+          <div id="additional-income-list" class="bills-list"></div>
         </div>
       </section>
 
@@ -206,7 +214,7 @@
       <section id="section-budget" class="section">
         <div class="cards-row">
           <div class="card card-green">
-            <div class="card-label">Monthly Income</div>
+            <div class="card-label">Total Monthly Income</div>
             <div class="card-value" id="budget-income">$0.00</div>
           </div>
           <div class="card card-red">
@@ -216,12 +224,37 @@
           <div class="card card-blue">
             <div class="card-label">Discretionary Budget</div>
             <div class="card-value" id="budget-discretionary">$0.00</div>
-            <div class="card-sub">Income minus bills</div>
+            <div class="card-sub">After bills &amp; savings target</div>
           </div>
           <div class="card card-orange">
             <div class="card-label">Weekly Allowance</div>
             <div class="card-value" id="budget-weekly">$0.00</div>
             <div class="card-sub">Per week</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Monthly Targets</h2>
+            <button class="btn btn-sm btn-primary" onclick="saveBudgetTargets()">Save Targets</button>
+          </div>
+          <div class="budget-targets-grid">
+            <div class="budget-target-item">
+              <label class="budget-target-label">💸 Monthly Spending Target</label>
+              <div class="budget-target-sub">How much you want to spend on discretionary expenses this month</div>
+              <div class="budget-target-input-row">
+                <span class="input-prefix">$</span>
+                <input type="number" id="budget-spend-target" class="input budget-target-input" placeholder="0.00" step="0.01" min="0" />
+              </div>
+            </div>
+            <div class="budget-target-item">
+              <label class="budget-target-label">💰 Monthly Savings Target</label>
+              <div class="budget-target-sub">How much you want to move to savings each month (deducted from discretionary budget)</div>
+              <div class="budget-target-input-row">
+                <span class="input-prefix">$</span>
+                <input type="number" id="budget-savings-target" class="input budget-target-input" placeholder="0.00" step="0.01" min="0" />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -305,6 +338,41 @@
 
   <!-- MODALS -->
   <div id="modal-overlay" class="modal-overlay hidden">
+    <!-- Add/Edit Additional Income -->
+    <div id="modal-addl-income" class="modal hidden">
+      <div class="modal-header">
+        <h3 id="modal-addl-income-title">Add Additional Income</h3>
+        <button class="modal-close" onclick="closeModal('modal-addl-income')">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="addl-income-edit-id" />
+        <div class="form-group">
+          <label>Source Name</label>
+          <input type="text" id="addl-income-name" class="input" placeholder="e.g. Freelance, Side Job, Rental Income" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Monthly Amount ($)</label>
+            <input type="number" id="addl-income-amount" class="input" placeholder="0.00" step="0.01" min="0" />
+          </div>
+          <div class="form-group">
+            <label>Frequency</label>
+            <select id="addl-income-frequency" class="input">
+              <option value="monthly">Monthly</option>
+              <option value="weekly">Weekly</option>
+              <option value="bi-weekly">Bi-Weekly</option>
+              <option value="one-time">One-Time</option>
+              <option value="irregular">Irregular</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-addl-income')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveAdditionalIncome()">Save</button>
+      </div>
+    </div>
+
     <!-- Add/Edit Transaction -->
     <div id="modal-transaction" class="modal hidden">
       <div class="modal-header">
