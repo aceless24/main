@@ -241,28 +241,87 @@ function totalSavingsBalance() {
   return (state.bankAccounts || []).filter(a => a.accountType === 'savings' || a.accountType === 'money market' || a.accountType === 'cd').reduce((s, a) => s + (a.balance || 0), 0);
 }
 
-/* ─── Wave Animation ───────────────────────────────────────────── */
-// Five themes matching the reference images — saturated glowing ribbons on dark bg
+/* ─── App Themes ────────────────────────────────────────────────── */
 const WAVE_THEMES = [
-  { name: 'ocean',    label: 'Ocean',    bg: '#00060f', colors: ['#00b4d8','#48cae4','#0077b6','#90e0ef'] },
-  { name: 'aurora',   label: 'Aurora',   bg: '#06001a', colors: ['#9d4edd','#c77dff','#7b2ff7','#e0aaff'] },
-  { name: 'nebula',   label: 'Nebula',   bg: '#0d0014', colors: ['#f72585','#b5179e','#7209b7','#480ca8'] },
-  { name: 'cyber',    label: 'Cyber',    bg: '#000a0f', colors: ['#00f5d4','#00bbf9','#9b5de5','#f15bb5'] },
-  { name: 'plasma',   label: 'Plasma',   bg: '#00010f', colors: ['#4361ee','#4cc9f0','#3f37c9','#4895ef'] },
-  { name: 'midnight', label: 'Midnight', bg: '#000d1a', colors: ['#0066ff','#00aaff','#0033cc','#66ccff'] },
-  { name: 'emerald',  label: 'Emerald',  bg: '#001a0d', colors: ['#00c853','#69f0ae','#00a040','#b9f6ca'] },
-  { name: 'sunset',   label: 'Sunset',   bg: '#1a0800', colors: ['#ff6b35','#ff8c42','#ffcd80','#ffa726'] },
-  { name: 'ice',      label: 'Ice',      bg: '#001020', colors: ['#80d8ff','#40c4ff','#00b0ff','#e0f7fa'] },
-  { name: 'gold',     label: 'Gold',     bg: '#0d0a00', colors: ['#ffd700','#ffb300','#ff8f00','#fff176'] },
+  { name: 'ocean',    label: 'Ocean',
+    heroBg:   'linear-gradient(135deg,#00060f 0%,#00274d 55%,#005f99 100%)',
+    headerBg: 'linear-gradient(90deg,#00060f 0%,#00274d 60%,#005f99 100%)',
+    btnBg:    'linear-gradient(135deg,#0077b6,#00b4d8)', btnShadow:'rgba(0,119,182,0.35)',
+    navBg:    'linear-gradient(135deg,rgba(0,119,182,0.75),rgba(0,180,216,0.6))', navShadow:'rgba(0,119,182,0.4)',
+    glow:'rgba(0,119,182,0.35)' },
+  { name: 'aurora',   label: 'Aurora',
+    heroBg:   'linear-gradient(135deg,#06001a 0%,#1e0a3c 55%,#5a1a9e 100%)',
+    headerBg: 'linear-gradient(90deg,#06001a 0%,#1e0a3c 60%,#5a1a9e 100%)',
+    btnBg:    'linear-gradient(135deg,#7c3aed,#6366f1)', btnShadow:'rgba(124,58,237,0.35)',
+    navBg:    'linear-gradient(135deg,rgba(124,58,237,0.75),rgba(99,102,241,0.6))', navShadow:'rgba(124,58,237,0.4)',
+    glow:'rgba(124,58,237,0.35)' },
+  { name: 'nebula',   label: 'Nebula',
+    heroBg:   'linear-gradient(135deg,#0d0014 0%,#3a0050 55%,#8a0080 100%)',
+    headerBg: 'linear-gradient(90deg,#0d0014 0%,#3a0050 60%,#8a0080 100%)',
+    btnBg:    'linear-gradient(135deg,#b5179e,#f72585)', btnShadow:'rgba(181,23,158,0.35)',
+    navBg:    'linear-gradient(135deg,rgba(181,23,158,0.75),rgba(247,37,133,0.6))', navShadow:'rgba(181,23,158,0.4)',
+    glow:'rgba(181,23,158,0.35)' },
+  { name: 'cyber',    label: 'Cyber',
+    heroBg:   'linear-gradient(135deg,#000a0f 0%,#00252f 55%,#00454f 100%)',
+    headerBg: 'linear-gradient(90deg,#000a0f 0%,#00252f 60%,#00454f 100%)',
+    btnBg:    'linear-gradient(135deg,#00878a,#00f5d4)', btnShadow:'rgba(0,245,212,0.3)',
+    navBg:    'linear-gradient(135deg,rgba(0,135,138,0.75),rgba(0,245,212,0.5))', navShadow:'rgba(0,245,212,0.3)',
+    glow:'rgba(0,245,212,0.25)' },
+  { name: 'plasma',   label: 'Plasma',
+    heroBg:   'linear-gradient(135deg,#00010f 0%,#0d1a6e 55%,#3050c8 100%)',
+    headerBg: 'linear-gradient(90deg,#00010f 0%,#0d1a6e 60%,#3050c8 100%)',
+    btnBg:    'linear-gradient(135deg,#3f37c9,#4cc9f0)', btnShadow:'rgba(63,55,201,0.35)',
+    navBg:    'linear-gradient(135deg,rgba(63,55,201,0.75),rgba(76,201,240,0.6))', navShadow:'rgba(63,55,201,0.4)',
+    glow:'rgba(67,97,238,0.35)' },
+  { name: 'midnight', label: 'Midnight',
+    heroBg:   'linear-gradient(135deg,#000d1a 0%,#001a40 55%,#003380 100%)',
+    headerBg: 'linear-gradient(90deg,#000d1a 0%,#001a40 60%,#003380 100%)',
+    btnBg:    'linear-gradient(135deg,#003380,#0066ff)', btnShadow:'rgba(0,51,128,0.4)',
+    navBg:    'linear-gradient(135deg,rgba(0,51,128,0.75),rgba(0,102,255,0.6))', navShadow:'rgba(0,51,128,0.4)',
+    glow:'rgba(0,51,128,0.4)' },
+  { name: 'emerald',  label: 'Emerald',
+    heroBg:   'linear-gradient(135deg,#001a0d 0%,#003320 55%,#006640 100%)',
+    headerBg: 'linear-gradient(90deg,#001a0d 0%,#003320 60%,#006640 100%)',
+    btnBg:    'linear-gradient(135deg,#00803a,#00c853)', btnShadow:'rgba(0,128,58,0.35)',
+    navBg:    'linear-gradient(135deg,rgba(0,128,58,0.75),rgba(0,200,83,0.6))', navShadow:'rgba(0,128,58,0.4)',
+    glow:'rgba(0,160,64,0.3)' },
+  { name: 'sunset',   label: 'Sunset',
+    heroBg:   'linear-gradient(135deg,#1a0800 0%,#4a1500 55%,#9a3000 100%)',
+    headerBg: 'linear-gradient(90deg,#1a0800 0%,#4a1500 60%,#9a3000 100%)',
+    btnBg:    'linear-gradient(135deg,#c04000,#ff8c42)', btnShadow:'rgba(192,64,0,0.35)',
+    navBg:    'linear-gradient(135deg,rgba(192,64,0,0.75),rgba(255,140,66,0.6))', navShadow:'rgba(192,64,0,0.4)',
+    glow:'rgba(192,64,0,0.35)' },
+  { name: 'ice',      label: 'Ice',
+    heroBg:   'linear-gradient(135deg,#001020 0%,#002040 55%,#004070 100%)',
+    headerBg: 'linear-gradient(90deg,#001020 0%,#002040 60%,#004070 100%)',
+    btnBg:    'linear-gradient(135deg,#005b8e,#40c4ff)', btnShadow:'rgba(0,91,142,0.35)',
+    navBg:    'linear-gradient(135deg,rgba(0,91,142,0.75),rgba(64,196,255,0.6))', navShadow:'rgba(0,91,142,0.4)',
+    glow:'rgba(0,176,255,0.3)' },
+  { name: 'gold',     label: 'Gold',
+    heroBg:   'linear-gradient(135deg,#0d0a00 0%,#2a2000 55%,#6b4f00 100%)',
+    headerBg: 'linear-gradient(90deg,#0d0a00 0%,#2a2000 60%,#6b4f00 100%)',
+    btnBg:    'linear-gradient(135deg,#7a5d00,#ffd700)', btnShadow:'rgba(122,93,0,0.4)',
+    navBg:    'linear-gradient(135deg,rgba(122,93,0,0.75),rgba(255,215,0,0.5))', navShadow:'rgba(122,93,0,0.4)',
+    glow:'rgba(107,79,0,0.4)' },
 ];
 
 let activeWaveTheme = null;
-let heroWaveAnim    = null;
-let headerWaveAnim  = null;
+
+function applyAppTheme(theme) {
+  const r = document.documentElement;
+  r.style.setProperty('--theme-hero-bg',    theme.heroBg);
+  r.style.setProperty('--theme-header-bg',  theme.headerBg);
+  r.style.setProperty('--theme-btn-bg',     theme.btnBg);
+  r.style.setProperty('--theme-btn-shadow', theme.btnShadow);
+  r.style.setProperty('--theme-nav-bg',     theme.navBg);
+  r.style.setProperty('--theme-nav-shadow', theme.navShadow);
+  r.style.setProperty('--theme-glow',       theme.glow);
+}
 
 function pickWaveTheme() {
-  const themeName = (state.settings && state.settings.waveTheme) || 'ocean';
-  activeWaveTheme = WAVE_THEMES.find(t => t.name === themeName) || WAVE_THEMES[0];
+  const themeName = (state.settings && state.settings.waveTheme) || 'aurora';
+  activeWaveTheme = WAVE_THEMES.find(t => t.name === themeName) || WAVE_THEMES[1];
+  applyAppTheme(activeWaveTheme);
   return activeWaveTheme;
 }
 
@@ -2877,7 +2936,7 @@ function renderSettings() {
     waveEl.innerHTML = WAVE_THEMES.map(t => `
       <button class="wave-swatch ${currentWave === t.name ? 'wave-swatch-active' : ''}"
               onclick="setWaveTheme('${t.name}')" title="${t.label}"
-              style="background:linear-gradient(135deg,${t.colors[0]},${t.colors[1]},${t.colors[2]})">
+              style="background:${t.heroBg}">
         <span>${t.label}</span>
       </button>`).join('');
   }
@@ -2901,11 +2960,8 @@ function setWaveTheme(themeName) {
   if (!state.settings) state.settings = {};
   state.settings.waveTheme = themeName;
   saveState();
-  if (heroWaveAnim) { heroWaveAnim.stop(); heroWaveAnim = null; }
-  if (headerWaveAnim) { headerWaveAnim.stop(); headerWaveAnim = null; }
-  activeWaveTheme = WAVE_THEMES.find(t => t.name === themeName) || WAVE_THEMES[0];
-  heroWaveAnim   = startWaveCanvas('hero-wave-canvas',   activeWaveTheme);
-  headerWaveAnim = startWaveCanvas('header-wave-canvas', activeWaveTheme);
+  activeWaveTheme = WAVE_THEMES.find(t => t.name === themeName) || WAVE_THEMES[1];
+  applyAppTheme(activeWaveTheme);
   renderSettings();
 }
 
@@ -3104,9 +3160,7 @@ function init() {
       if (loadingBar) loadingBar.style.width = '100%';
       setTimeout(() => {
         if (loadingScreen) loadingScreen.classList.add('hidden');
-        const theme = pickWaveTheme();
-        heroWaveAnim   = startWaveCanvas('hero-wave-canvas',   theme);
-        headerWaveAnim = startWaveCanvas('header-wave-canvas', theme);
+        pickWaveTheme();
       }, 400);
     }
     if (loadingBar) loadingBar.style.width = progress + '%';
