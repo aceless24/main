@@ -1622,7 +1622,6 @@ function renderBudget() {
   const catCtx = document.getElementById('budget-vs-spend-chart').getContext('2d');
   if (budgetVsSpendChart) budgetVsSpendChart.destroy();
 
-  const key = currentMonthKey();
   const txs = getTransactionsForMonth(key);
   const catTotals = {};
   txs.forEach(t => { catTotals[t.category] = (catTotals[t.category] || 0) + t.amount; });
