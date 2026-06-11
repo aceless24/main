@@ -1528,17 +1528,23 @@ function saveMinBalanceTarget(accountId, value) {
 }
 
 function renderBudget() {
-  const inc = totalMonthlyIncome();
-  const bills = totalBills();
+  const key   = currentMonthKey();
+  const inc   = totalMonthlyIncome();
+  const fixedBills = totalBills();
+  const varEst  = totalVariableEstimate(key);
+  const varHigh = varEst.max > 0 ? varEst.max : totalVariableBills(key);
+  const ccMonthly  = totalCCMonthlyCommitment();
+  const savingsOut = Math.max(state.budget?.monthlySavingsTarget || 0, state.savingsAllocation || 0);
+  const totalObligations = fixedBills + varHigh + ccMonthly + savingsOut;
   const adjDisc = adjustedDiscretionary();
   const adjWkly = adjustedWeeklyBudget();
-  const disc = discretionaryBudget();
-  const spent = spentThisMonth();
+  const disc    = discretionaryBudget();
+  const spent   = spentThisMonth();
   const spendTarget = state.budget?.monthlySpendingTarget || 0;
-  const saveTarget = state.budget?.monthlySavingsTarget || 0;
+  const saveTarget  = state.budget?.monthlySavingsTarget  || 0;
 
   document.getElementById('budget-income').textContent = fmt(inc);
-  document.getElementById('budget-bills').textContent = fmt(bills);
+  document.getElementById('budget-bills').textContent  = fmt(totalObligations);
   document.getElementById('budget-discretionary').textContent = fmt(Math.max(0, adjDisc));
   document.getElementById('budget-weekly').textContent = fmt(Math.max(0, adjWkly));
 
@@ -1546,15 +1552,18 @@ function renderBudget() {
   renderBalanceAllocation();
 
   // Spending target inputs
-  document.getElementById('budget-spend-target').value = spendTarget || '';
+  document.getElementById('budget-spend-target').value  = spendTarget || '';
   document.getElementById('budget-savings-target').value = saveTarget || '';
 
   // breakdown
-  const breakdown = document.getElementById('budget-breakdown');
+  const breakdown   = document.getElementById('budget-breakdown');
   const minReserved = totalMinBalanceReserved();
-  const billsPct   = inc > 0 ? (bills / inc) * 100 : 0;
+
+  const fixedPct   = inc > 0 ? (fixedBills / inc) * 100 : 0;
+  const varPct     = inc > 0 ? (varHigh    / inc) * 100 : 0;
+  const ccPct      = inc > 0 ? (ccMonthly  / inc) * 100 : 0;
   const savePct    = inc > 0 ? (saveTarget / inc) * 100 : 0;
-  const spendPct   = adjDisc > 0 ? Math.min(100, (spent / adjDisc) * 100) : 0;
+  const spendPct   = adjDisc > 0 ? Math.min(100, (spent    / adjDisc) * 100) : 0;
   const targetPct  = adjDisc > 0 ? Math.min(100, (spendTarget / adjDisc) * 100) : 0;
   const minResPct  = inc > 0 ? Math.min(100, (minReserved / inc) * 100) : 0;
   const remaining  = adjDisc - spent;
@@ -1570,14 +1579,28 @@ function renderBudget() {
       <div class="budget-bar-track"><div class="budget-bar-fill" style="width:${Math.min(100,minResPct)}%;background:#f59e0b"></div></div>
     </div>` : '';
 
+  const varRow = varHigh > 0 ? `
+    <div class="budget-item">
+      <div class="budget-item-header"><span>Variable Bills</span><span style="color:#06b6d4">${fmt(varHigh)} (${varPct.toFixed(0)}%)</span></div>
+      <div class="budget-bar-track"><div class="budget-bar-fill" style="width:${Math.min(100,varPct)}%;background:#06b6d4"></div></div>
+    </div>` : '';
+
+  const ccRow = ccMonthly > 0 ? `
+    <div class="budget-item">
+      <div class="budget-item-header"><span>CC Payments</span><span style="color:#a855f7">${fmt(ccMonthly)} (${ccPct.toFixed(0)}%)</span></div>
+      <div class="budget-bar-track"><div class="budget-bar-fill" style="width:${Math.min(100,ccPct)}%;background:#a855f7"></div></div>
+    </div>` : '';
+
   breakdown.innerHTML = `
     <div class="budget-item">
-      <div class="budget-item-header"><span>Bills &amp; Subscriptions</span><span>${fmt(bills)} (${billsPct.toFixed(0)}%)</span></div>
-      <div class="budget-bar-track"><div class="budget-bar-fill" style="width:${Math.min(100,billsPct)}%;background:#ef4444"></div></div>
+      <div class="budget-item-header"><span>Fixed Bills &amp; Subscriptions</span><span>${fmt(fixedBills)} (${fixedPct.toFixed(0)}%)</span></div>
+      <div class="budget-bar-track"><div class="budget-bar-fill" style="width:${Math.min(100,fixedPct)}%;background:#ef4444"></div></div>
     </div>
+    ${varRow}
+    ${ccRow}
     <div class="budget-item">
-      <div class="budget-item-header"><span>Monthly Savings Target</span><span style="color:#a855f7">${fmt(saveTarget)} (${savePct.toFixed(0)}%)</span></div>
-      <div class="budget-bar-track"><div class="budget-bar-fill" style="width:${Math.min(100,savePct)}%;background:#a855f7"></div></div>
+      <div class="budget-item-header"><span>Monthly Savings</span><span style="color:#10b981">${fmt(savingsOut)} (${savePct.toFixed(0)}%)</span></div>
+      <div class="budget-bar-track"><div class="budget-bar-fill" style="width:${Math.min(100,savePct)}%;background:#10b981"></div></div>
     </div>
     ${minResRow}
     <div class="budget-item">
